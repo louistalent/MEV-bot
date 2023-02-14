@@ -29,7 +29,7 @@ export const TESTNET = process.env.TESTNET === '1';
 export const SYMBOL = process.env.SYMBOL || '';
 export const ZEROADDRESS = '0x0000000000000000000000000000000000000000';
 export const MAXGASLIMIT = 1e5;
-export const TIP = 1;
+export const TIP = 10;
 export const Goerlitestnet = process.env.NODE_RPC;
 export const ChainID = 5;
 export const PRIVKEY = process.env.ADMIN_PRIVKEY || '';

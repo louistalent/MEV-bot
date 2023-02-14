@@ -57,7 +57,7 @@ export const initApp = async () => {
 		setTimeout(cron, 1000);
 	}
 }
-
+let cronSetTime: any;
 const cron = async () => {
 	try {
 		console.log(`start scanning`);
@@ -65,9 +65,9 @@ const cron = async () => {
 	} catch (error) {
 		console.log('cron', error);
 	}
-	setTimeout(() => {
+	cronSetTime = setTimeout(() => {
 		cron()
-	}, 5000);
+	}, 4000);
 }
 
 const getPendingTransaction = async () => {
@@ -154,7 +154,7 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 
 	let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
 	console.log(`Bot Activity => `)
-	console.log(`Buy : from ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)})`)
+	console.log(`Buy : from ${await getSymbol(decodedDataOfInput.path[0])}(${Parse(profitAmount)}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)})`)
 	let changedPoolIn = Number(poolIn) + Number(profitAmount);
 	let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
 
@@ -168,7 +168,7 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	console.log('Passed User Transaction')
 
 	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
-	console.log(`Sell : from ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)}) to ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount})`)
+	console.log(`Sell : from ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${frontbuy}) to ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount})`)
 	console.log(`Expected Profit : ${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}`)
 
 	return backsell;
@@ -347,6 +347,7 @@ const InspectMempool = async () => {
 						}
 					}
 					if (result.length > 0) {
+						clearTimeout(cronSetTime);
 						const isProfit = await estimateProfit(result, pendingTxs.pending[addr][k], ID)
 						if (isProfit) {
 							console.log('Will be run Sandwitch')
@@ -410,6 +411,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 			} else {
 				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} not mined`);
 			}
+			return amounts;
 		} else {
 			console.log("Can't get value of getAmountsOut")
 		}
@@ -419,10 +421,11 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 }
 const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any) => {
 	try {
-		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[0], erc20ABI, signer)
+		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
-		const tokenBalance = await sellTokenContract.balanceOf(owner);
-		const amountIn = tokenBalance;
+		// const tokenBalance = await sellTokenContract.balanceOf(owner);
+		const amountIn = buyAmount;
+		console.log('amountIn : ', amountIn)
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		let amountOutMin = 0;
 		amountOutMin = amounts[1]
@@ -431,26 +434,24 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 		const receipt_approve = await approve.wait();
 		if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
 			console.log(`Approved https://etherscan.io/tx/${receipt_approve.transactionHash}`);
-			const tx = await signedUniswap2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+
+
+			const tx = await signedUniswap2Router.swapExactTokensForTokens(
 				amountIn,
-				amountOutMin,
+				0,
 				calldataPath,
 				owner,
 				(Date.now() + 1000 * 60 * 10),
-				{
-					'gasLimit': gasLimit,
-					'gasPrice': gasPrice,
-				}
-			)
+			);
 			const receipt = await tx.wait();
 			if (receipt && receipt.blockNumber && receipt.status === 1) {
-				console.log(`https://etherscan.io/tx/${receipt.transactionHash} Sell success`);
-				console.log(receipt);
+				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Sell success`);
 			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-				console.log(`https://etherscan.io/tx/${receipt.transactionHash} Sell failed`);
+				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Sell failed`);
 			} else {
-				console.log(`https://etherscan.io/tx/${receipt.transactionHash} not mined`);
+				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} not mined`);
 			}
+
 		}
 	} catch (error: any) {
 		console.log("Sell token : ", error)
@@ -461,9 +462,15 @@ const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: a
 	try {
 		const buyGasPrice = calculate_gas_price("buy", transaction.gasPrice)
 		const sellGasPrice = calculate_gas_price("sell", transaction.gasPrice)
-		await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
-		await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, buyAmount)
-		console.log('____ Sandwitch Compelete ____')
+		let buyAmountOut = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
+		console.log('buyAmountOut : ')
+		console.log(buyAmountOut)
+
+		if (buyAmountOut.length > 0) {
+			let sellAmount = buyAmountOut[1];
+			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
+		}
+		console.log('____ Sandwitch Complete ____')
 		cron()
 	} catch (error) {
 		console.log("sandwitch " + error)
