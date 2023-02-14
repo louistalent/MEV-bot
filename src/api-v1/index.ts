@@ -67,7 +67,7 @@ const cron = async () => {
 	}
 	cronSetTime = setTimeout(() => {
 		cron()
-	}, 4000);
+	}, 4500);
 }
 
 const getPendingTransaction = async () => {
@@ -145,8 +145,8 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	const signedUniswap2Pair_ = await signedUniswap2Pair(pairContractAddress)
 	const pairReserves = await signedUniswap2Pair_.getReserves();
 
-	let poolOut = web3.utils.fromWei(pairReserves._reserve0.toString())
-	let poolIn = web3.utils.fromWei(pairReserves._reserve1.toString())
+	let poolIn = web3.utils.fromWei(pairReserves._reserve0.toString())
+	let poolOut = web3.utils.fromWei(pairReserves._reserve1.toString())
 
 	console.log(`Detected Swap transaction : from ${await getSymbol(decodedDataOfInput.path[0])} to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}`)
 	let decimalIn = await getDecimal(decodedDataOfInput.path[0])
@@ -154,24 +154,26 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 
 	let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
 	console.log(`Bot Activity => `)
-	console.log(`Buy : from ${await getSymbol(decodedDataOfInput.path[0])}(${Parse(profitAmount)}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)})`)
+	console.log(`Buy : from ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)})`)
 	let changedPoolIn = Number(poolIn) + Number(profitAmount);
 	let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
 
 	let UserTx = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(changedPoolIn, decimalIn), Parse(changedPoolOut, decimalOut));
-	changedPoolOut = changedPoolOut - profitAmount;
-	changedPoolIn = changedPoolIn + Number(Format(UserTx));
+	changedPoolIn = changedPoolIn + profitAmount;
+	changedPoolOut = changedPoolOut - Number(Format(UserTx));
 	console.log('changedPoolOut :', changedPoolOut)
 	console.log('changedPoolIn :', changedPoolIn)
 
-	console.log()
-	console.log('Passed User Transaction')
+	console.log(`User Transaction: from ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(UserTx)})`)
 
 	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
-	console.log(`Sell : from ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${frontbuy}) to ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount})`)
-	console.log(`Expected Profit : ${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}`)
-
-	return backsell;
+	console.log(`Sell : from ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)}) to ${await getSymbol(decodedDataOfInput.path[0])}(${Format(backsell)})`)
+	let Revenue = Number(Format(backsell)) - Number(profitAmount);
+	console.log(`Expected Profit :Buy Amount (${profitAmount} ${await getSymbol(decodedDataOfInput.path[0])}) - Profit Amount (${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}) = ${Revenue}`)
+	if (Number(Format(backsell)) < Number(profitAmount)) {
+		return null;
+	}
+	return Format(backsell);
 
 }
 
@@ -240,7 +242,6 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 			}
 		}
 
-		return profitAmount;
 	} catch (error) {
 		console.log("estimateProfit " + error)
 	}
@@ -349,11 +350,17 @@ const InspectMempool = async () => {
 					if (result.length > 0) {
 						clearTimeout(cronSetTime);
 						const isProfit = await estimateProfit(result, pendingTxs.pending[addr][k], ID)
-						if (isProfit) {
-							console.log('Will be run Sandwitch')
-							sandwitch(pendingTxs.pending[addr][k], result, isProfit);
+						if (isProfit !== null) {
+							if (isProfit) {
+								console.log('Will be run Sandwitch')
+								sandwitch(pendingTxs.pending[addr][k], result, isProfit);
+							} else {
+								console.log('No profit')
+								cron()
+							}
 						} else {
-							console.log('No profit')
+							console.log('NO profit')
+							cron()
 						}
 					} else {
 
@@ -469,9 +476,12 @@ const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: a
 		if (buyAmountOut.length > 0) {
 			let sellAmount = buyAmountOut[1];
 			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
+			console.log('____ Sandwitch Complete ____')
+			cron()
+		} else {
+			console.log('Can`t sell token')
+			cron()
 		}
-		console.log('____ Sandwitch Complete ____')
-		cron()
 	} catch (error) {
 		console.log("sandwitch " + error)
 	}
