@@ -14,7 +14,7 @@ import { BigNumber, ethers } from 'ethers'
 import { now, Parse, Format } from '../utils/helper'
 import axios from 'axios'
 import { Prices } from '../Model'
-import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, Goerlitestnet, ZEROADDRESS, TIP, SECRETKEY, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS } from '../constants'
+import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, RPC_URL, ZEROADDRESS, TIP, SECRETKEY, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS } from '../constants'
 import { inspect } from 'util'
 import { isMainThread } from 'worker_threads';
 import uniswapRouterABI from '../ABI/uniswapRouterABI.json';
@@ -24,11 +24,11 @@ import erc20ABI from '../ABI/erc20ABI.json';
 import { Transaction } from 'mongodb';
 import { sign } from 'crypto';
 
-const web3 = new Web3(Goerlitestnet)
+const web3 = new Web3(RPC_URL)
 const router = express.Router()
 const prices = {} as { [coin: string]: number }
 const gasPrices = {} as { [chain: string]: number };
-const provider = new ethers.providers.JsonRpcProvider(Goerlitestnet)
+const provider = new ethers.providers.JsonRpcProvider(RPC_URL)
 const wallet = new ethers.Wallet(SECRETKEY, provider);
 const signer = wallet.connect(provider);
 const owner = wallet.address;
@@ -54,14 +54,15 @@ export const initApp = async () => {
 		console.log("initialized Application");
 		cron();
 	} catch (error) {
-		setTimeout(cron, 1000);
+		// setTimeout(cron, 1000);
+		cron()
 	}
 }
 let cronSetTime: any;
 const cron = async () => {
 	try {
 		console.log(`start scanning`);
-		InspectMempool();
+		await InspectMempool();
 	} catch (error) {
 		console.log('cron', error);
 	}
@@ -72,7 +73,7 @@ const cron = async () => {
 
 const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
-		const res = await axios.post(`${Goerlitestnet}`, json)
+		const res = await axios.post(`${RPC_URL}`, json)
 		return res.data.result;
 	}
 	try {
@@ -169,7 +170,7 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
 	console.log(`Sell : from ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)}) to ${await getSymbol(decodedDataOfInput.path[0])}(${Format(backsell)})`)
 	let Revenue = Number(Format(backsell)) - Number(profitAmount);
-	console.log(`Expected Profit :Buy Amount (${profitAmount} ${await getSymbol(decodedDataOfInput.path[0])}) - Profit Amount (${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}) = ${Revenue}`)
+	console.log(`Expected Profit :Buy Amount (${profitAmount} ${await getSymbol(decodedDataOfInput.path[0])}) - Profit Amount (${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}) = ${Revenue}${await getSymbol(decodedDataOfInput.path[0])}`)
 	if (Number(Format(backsell)) < Number(profitAmount)) {
 		return null;
 	}
@@ -432,7 +433,6 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
 		// const tokenBalance = await sellTokenContract.balanceOf(owner);
 		const amountIn = buyAmount;
-		console.log('amountIn : ', amountIn)
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		let amountOutMin = 0;
 		amountOutMin = amounts[1]
@@ -470,8 +470,6 @@ const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: a
 		const buyGasPrice = calculate_gas_price("buy", transaction.gasPrice)
 		const sellGasPrice = calculate_gas_price("sell", transaction.gasPrice)
 		let buyAmountOut = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
-		console.log('buyAmountOut : ')
-		console.log(buyAmountOut)
 
 		if (buyAmountOut.length > 0) {
 			let sellAmount = buyAmountOut[1];
