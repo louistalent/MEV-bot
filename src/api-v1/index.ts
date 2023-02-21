@@ -493,14 +493,18 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
 		if (amounts.length > 0) {
-			// console.log('gasLimit : ', gasLimit)
-			// console.log('gasPrice : ', gasPrice)
+			console.log('gasLimit : ', gasLimit)
+			console.log('gasPrice : ', gasPrice)
 			const tx = await signedUniswap2Router.swapExactTokensForTokens(
 				amountIn,
 				0,
 				calldataPath,
 				owner,
 				(Date.now() + 1000 * 60 * 10),
+				{
+					'gasLimit': gasLimit,
+					'gasPrice': gasPrice,
+				}
 			);
 			const receipt = await tx.wait();
 			if (receipt && receipt.blockNumber && receipt.status === 1) {
