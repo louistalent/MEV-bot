@@ -39,6 +39,8 @@ const Uniswap2Factory = new ethers.Contract(UNISWAPV2_FACTORY_ADDRESS, uniswapFa
 var signedUniswap2Router = Uniswap2Router.connect(signer);
 var signedUniswap2Factory = Uniswap2Factory.connect(signer);
 
+let scanedTransactions: any = [];
+
 const signedUniswap2Pair = async (pairContractAddress: string) => {
 	const Uniswap2Pair = new ethers.Contract(pairContractAddress, uniswapPairABI, provider);
 	return Uniswap2Pair
@@ -53,13 +55,25 @@ export const initApp = async () => {
 	try {
 		console.log("initialized Application");
 		cron();
+		// cron2();
 	} catch (error) {
 		// setTimeout(cron, 1000);
 		cron()
+		// cron2();
 	}
 }
-let scanedTransactions: any = [];
-let cronSetTime: any;
+// const cron2 = async () => {
+// 	await checkInspectedData((para: any) => {
+// 		if (para) {
+// 			cron2()
+// 		}
+// 		console.log('loop checkInspectedData function')
+// 		let cron2_ = setTimeout(() => {
+// 			cron2()
+// 		}, 1000);
+// 		clearTimeout(cron2_);
+// 	});
+// }
 const cron = async () => {
 	try {
 		console.log(`start scanning`);
@@ -68,11 +82,10 @@ const cron = async () => {
 	} catch (error) {
 		console.log('cron', error);
 	}
-	cronSetTime = setTimeout(() => {
+	setTimeout(() => {
 		cron()
-	}, 2000);
+	}, 500);
 }
-
 const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
 		const res = await axios.post(`${RPC_URL}`, json)
@@ -86,8 +99,6 @@ const getPendingTransaction = async () => {
 	}
 	// setTimeout(() => getPendingTransaction, 3000);
 }
-
-
 function calculate_gas_price(action: any, amount: any) {
 	let number = parseInt(amount, 16);
 	if (action === "buy") {
@@ -96,8 +107,7 @@ function calculate_gas_price(action: any, amount: any) {
 		return "0x" + (number - 1).toString(16)
 	}
 }
-
-const calculateETH = async (gasLimit_: string, gasPrice: string) => {
+const calculateETH = async (gasLimit_: any, gasPrice: any) => {
 	try {
 		let TIP = 0;
 		let GweiValue = ethers.utils.formatUnits(gasPrice, "gwei");
@@ -109,7 +119,6 @@ const calculateETH = async (gasLimit_: string, gasPrice: string) => {
 		console.log('calculateETH :', error)
 	}
 }
-
 const botAmountForPurchase = async (transaction: any, decodedDataOfInput: any, minAmount: any) => {
 	const transactionAmount = await signedUniswap2Router.getAmountsOut(transaction.value, decodedDataOfInput.path);// amount, path
 	const pairPool = await signedUniswap2Router.getReserves(UNISWAPV2_FACTORY_ADDRESS, decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]);// amount, path
@@ -127,7 +136,6 @@ const botAmountForPurchase = async (transaction: any, decodedDataOfInput: any, m
 	return botPurchaseAmount;
 
 }
-
 const getDecimal = async (tokenAddress: string) => {
 	let decimal = 0;
 	let contract = await ERC20(tokenAddress);
@@ -142,21 +150,27 @@ const getSymbol = async (tokenAddress: string) => {
 
 	return SYMBOL;
 }
-
 const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any) => {
 	const pairContractAddress = await signedUniswap2Factory.getPair(decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 	const signedUniswap2Pair_ = await signedUniswap2Pair(pairContractAddress)
-	const pairReserves = await signedUniswap2Pair_.getReserves();
+	const poolToken0 = await signedUniswap2Pair_.token0();
 
-	let poolIn = web3.utils.fromWei(pairReserves._reserve0.toString())
-	let poolOut = web3.utils.fromWei(pairReserves._reserve1.toString())
+	const pairReserves = await signedUniswap2Pair_.getReserves();
+	let poolIn = "";
+	let poolOut = "";
+	if (decodedDataOfInput.path[0].toLowerCase() == poolToken0.toLowerCase()) {
+		poolIn = web3.utils.fromWei(pairReserves._reserve0.toString())
+		poolOut = web3.utils.fromWei(pairReserves._reserve1.toString())
+	} else {
+		poolIn = web3.utils.fromWei(pairReserves._reserve1.toString())
+		poolOut = web3.utils.fromWei(pairReserves._reserve0.toString())
+	}
 
 	console.log(`Detected Swap transaction : from ${await getSymbol(decodedDataOfInput.path[0])} to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}`)
 	let decimalIn = await getDecimal(decodedDataOfInput.path[0])
 	let decimalOut = await getDecimal(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 
 	let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
-	console.log(`Bot Activity => `)
 	console.log(`Buy : from ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)})`)
 	let changedPoolIn = Number(poolIn) + Number(profitAmount);
 	let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
@@ -164,22 +178,20 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	let UserTx = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(changedPoolIn, decimalIn), Parse(changedPoolOut, decimalOut));
 	changedPoolIn = changedPoolIn + profitAmount;
 	changedPoolOut = changedPoolOut - Number(Format(UserTx));
-	console.log('changedPoolOut :', changedPoolOut)
-	console.log('changedPoolIn :', changedPoolIn)
+	// console.log('changedPoolOut :', changedPoolOut)
+	// console.log('changedPoolIn :', changedPoolIn)
 
-	console.log(`User Transaction: from ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(UserTx)})`)
+	console.log(`User : from ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(UserTx)})`)
 
 	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
 	console.log(`Sell : from ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)}) to ${await getSymbol(decodedDataOfInput.path[0])}(${Format(backsell)})`)
 	let Revenue = Number(Format(backsell)) - Number(profitAmount);
-	console.log(`Expected Profit :Profit Amount (${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}) - Buy Amount (${profitAmount} ${await getSymbol(decodedDataOfInput.path[0])}) = ${Revenue}${await getSymbol(decodedDataOfInput.path[0])}`)
+	console.log(`Expected Profit :Profit Amount (${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}) - Buy Amount (${profitAmount} ${await getSymbol(decodedDataOfInput.path[0])}) = ${Revenue} ${await getSymbol(decodedDataOfInput.path[0])}`)
 	if (Number(Format(backsell)) < Number(profitAmount)) {
 		return null;
 	}
 	return Format(backsell);
-
 }
-
 const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: string) => {
 	try {
 
@@ -221,9 +233,9 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 				profitAmount = Number(txValue);
 			}
 
-			let ETHAmountForGas = await calculateETH(transaction.gas, transaction.gasPrice)
-			let ETHAmountOfBenefit = 0;
-			console.log('ETHAmountForGas :', ETHAmountForGas);
+			// let ETHAmountForGas = await calculateETH(transaction.gas, transaction.gasPrice)
+			// let ETHAmountOfBenefit = 0;
+			// console.log('ETHAmountForGas :', ETHAmountForGas);
 
 			const profitAmount_ = await calculateProfitAmount(decodedDataOfInput, profitAmount)
 			if (profitAmount_)
@@ -250,22 +262,11 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 	}
 
 }
-
 const InspectMempool = async () => {
 	try {
 		const pendingTxs = await getPendingTransaction();
-		// console.log(pendingTxs);
-		// console.log('pendingTxs ; ');
-		let memPool: any = [];
-		let time = +new Date();
 		let ID = "ETH";
-
-
 		if (pendingTxs) {
-			let txs = [];
-			let tempTxs: any = {};
-			let bInit = memPool === null;
-
 			const SwapList = new ethers.utils.Interface([
 				'function swapExactTokensForTokens( uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline )',
 				'function swapTokensForExactTokens( uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline )',
@@ -283,12 +284,13 @@ const InspectMempool = async () => {
 					let result: any = [];
 					if (pendingTxs.pending[addr][k].to != null) {
 						if (pendingTxs.pending[addr][k].to.toLowerCase() == UNISWAP2_ROUTER_ADDRESS.toLowerCase()) {
+							console.log('uniswap router address: ')
 							try {
 								result = SwapList.decodeFunctionData('swapExactTokensForTokens', pendingTxs.pending[addr][k].input)
 								console.log('result swapExactTokensForTokens: ')
 								// console.log(result) ---
 								ID = "TOKEN"
-								if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+								if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 									scanedTransactions.push({
 										hash: pendingTxs.pending[addr][k].hash,
 										processed: false,
@@ -297,12 +299,13 @@ const InspectMempool = async () => {
 										ID: ID
 									})
 								}
+								console.log('scanedTransactions', scanedTransactions)
 							} catch (error: any) {
 								try {
 									result = SwapList.decodeFunctionData('swapTokensForExactTokens', pendingTxs.pending[addr][k].input)
 									// console.log(result) ---
 									ID = "TOKEN"
-									if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+									if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 										scanedTransactions.push({
 											hash: pendingTxs.pending[addr][k].hash,
 											processed: false,
@@ -318,7 +321,7 @@ const InspectMempool = async () => {
 										console.log('result swapExactETHForTokens: ')
 										// console.log(result) ---
 										ID = "ETH"
-										if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+										if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 											scanedTransactions.push({
 												hash: pendingTxs.pending[addr][k].hash,
 												processed: false,
@@ -333,7 +336,7 @@ const InspectMempool = async () => {
 											result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
 											console.log('result swapTokensForExactETH: ')
 											// console.log(result) ---
-											if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+											if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 												scanedTransactions.push({
 													hash: pendingTxs.pending[addr][k].hash,
 													processed: false,
@@ -347,7 +350,7 @@ const InspectMempool = async () => {
 											try {
 												result = SwapList.decodeFunctionData('swapExactTokensForETH', pendingTxs.pending[addr][k].input)
 												console.log('result swapExactTokensForETH: ')
-												if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+												if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 													scanedTransactions.push({
 														hash: pendingTxs.pending[addr][k].hash,
 														processed: false,
@@ -362,7 +365,7 @@ const InspectMempool = async () => {
 												try {
 													result = SwapList.decodeFunctionData('swapETHForExactTokens', pendingTxs.pending[addr][k].input)
 													console.log('result swapETHForExactTokens: ')
-													if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+													if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 														scanedTransactions.push({
 															hash: pendingTxs.pending[addr][k].hash,
 															processed: false,
@@ -378,7 +381,7 @@ const InspectMempool = async () => {
 														result = SwapList.decodeFunctionData('swapExactTokensForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 														console.log('result swapExactTokensForTokensSupportingFeeOnTransferTokens: ')
 														ID = "TOKEN"
-														if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+														if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 															scanedTransactions.push({
 																hash: pendingTxs.pending[addr][k].hash,
 																processed: false,
@@ -392,7 +395,7 @@ const InspectMempool = async () => {
 														try {
 															result = SwapList.decodeFunctionData('swapExactETHForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 															console.log('result swapExactETHForTokensSupportingFeeOnTransferTokens: ')
-															if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+															if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 																scanedTransactions.push({
 																	hash: pendingTxs.pending[addr][k].hash,
 																	processed: false,
@@ -408,7 +411,7 @@ const InspectMempool = async () => {
 																result = SwapList.decodeFunctionData('swapExactTokensForETHSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 																console.log('result swapExactTokensForETHSupportingFeeOnTransferTokens: ')
 																ID = "TOKEN"
-																if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+																if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 																	scanedTransactions.push({
 																		hash: pendingTxs.pending[addr][k].hash,
 																		processed: false,
@@ -433,36 +436,18 @@ const InspectMempool = async () => {
 						} else {
 						}
 					}
-
 				}
 			}
-			console.log(scanedTransactions.length)
-			// console.log('bInit : ')
-			// console.log(bInit)
-			// for (let addr in pendingTxs.queued) {
-			// 	for (let k in pendingTxs.queued[addr]) {
-			// 		let hash = pendingTxs.queued[addr][k].hash;
-			// 		if (bInit || memPool[hash] === undefined) {
-			// 			txs.push(pendingTxs.queued[addr][k]);
-			// 		}
-			// 		tempTxs[hash] = 1;
-			// 	}
-			// }
-			// console.log('tempTxs : ')
-			// console.log(tempTxs)
-			// memPool = tempTxs;
-			// ----------------------------------------------------------------------------------------
-
 		}
-
-
 	} catch (error) {
 		console.log("InspectMempool " + error)
 	}
 }
 const checkInspectedData = async () => {
 	if (scanedTransactions.length > 0) {
-		for (let i = 0; i < scanedTransactions.length - 1; i++) {
+		let number: number;
+		for (let i = 0; i <= scanedTransactions.length - 1; i++) {
+			number++;
 			if (scanedTransactions[i].processed === false) {
 				const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
 				if (isProfit !== null) {
@@ -474,15 +459,20 @@ const checkInspectedData = async () => {
 						console.log('No profit')
 					}
 				} else {
-					console.log('NO profit')
+					console.log('No profit')
 				}
 				if (scanedTransactions.length > 100) {
-					scanedTransactions.shift();//remove first element from scaned array
+					if (scanedTransactions[i].processed === true) {
+						scanedTransactions.shift();//remove first element from scaned array
+					}
 				}
 			}
+			// if (number === scanedTransactions.length - 1) {
+			// 	callback(scanedTransactions.length)
+			// }
 		}
 	} else {
-
+		// callback(scanedTransactions.length)
 	}
 }
 const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any) => {
@@ -490,31 +480,39 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 
 		const amountIn = Parse(buyAmount);
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
-		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
-		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
-		if (amounts.length > 0) {
-			console.log('gasLimit : ', gasLimit)
-			console.log('gasPrice : ', gasPrice)
-
-			const tx = await signedUniswap2Router.swapExactTokensForTokens(
-				amountIn,
-				0,
-				calldataPath,
-				owner,
-				(Date.now() + 1000 * 60 * 10),
-			);
-			const receipt = await tx.wait();
-			if (receipt && receipt.blockNumber && receipt.status === 1) {
-				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Buy success`);
-			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Buy failed`);
+		const buyTokenAddress = decodedDataOfInput.path[0]
+		const signedBuyTokenContract = new ethers.Contract(buyTokenAddress, erc20ABI, signer)
+		const approvetx = await signedBuyTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn);
+		const receipt_approve = await approvetx.wait();
+		if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
+			const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
+			// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
+			if (amounts.length > 0) {
+				// console.log('gasLimit : ', gasLimit)
+				// console.log('gasPrice : ', gasPrice)
+				const tx = await signedUniswap2Router.swapExactTokensForTokens(
+					amountIn,
+					0,
+					calldataPath,
+					owner,
+					(Date.now() + 1000 * 60 * 10),
+				);
+				const receipt = await tx.wait();
+				if (receipt && receipt.blockNumber && receipt.status === 1) {
+					console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Buy success`);
+				} else if (receipt && receipt.blockNumber && receipt.status === 0) {
+					console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Buy failed`);
+				} else {
+					console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} not mined`);
+				}
+				return amounts;
 			} else {
-				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} not mined`);
+				console.log("Can't get value of getAmountsOut")
 			}
-			return amounts;
 		} else {
-			console.log("Can't get value of getAmountsOut")
+
 		}
+
 	} catch (error: any) {
 		console.log("buy token : ", error)
 	}
