@@ -495,6 +495,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		if (amounts.length > 0) {
 			console.log('gasLimit : ', gasLimit)
 			console.log('gasPrice : ', gasPrice)
+			console.log('Buy Token now (swapExactTokensForTokens)')
 			const tx = await signedUniswap2Router.swapExactTokensForTokens(
 				amountIn,
 				0,
