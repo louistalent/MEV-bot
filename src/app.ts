@@ -16,7 +16,7 @@ import setlog from './setlog'
 import Server from './server'
 import Model from './Model'
 
-process.on("uncaughtException", (err: Error) => setlog('exception', err))
-process.on("unhandledRejection", (err: Error) => setlog('rejection', err))
+process.on("uncaughtException", (err: Error) => console.log('exception', err))
+process.on("unhandledRejection", (err: Error) => console.log('rejection', err))
 
 Model.open().then(() => Server())

@@ -14,8 +14,8 @@ import setlog from './setlog';
 // import Model from './Model'
 import { PORT } from './constants';
 
-process.on("uncaughtException", (err: Error) => setlog('exception', err));
-process.on("unhandledRejection", (err: Error) => setlog('rejection', err));
+process.on("uncaughtException", (err: Error) => console.log('exception', err));
+process.on("unhandledRejection", (err: Error) => console.log('rejection', err));
 
 export default async () => {
 	try {
@@ -33,10 +33,10 @@ export default async () => {
 		app.use(ApiV1);
 		let time = +new Date()
 		await new Promise(resolve => app.listen({ port: PORT, host: '0.0.0.0' }, () => resolve(true)))
-		setlog(`Started HTTP service on port ${PORT}. ${+new Date() - time}ms`)
+		console.log(`Started HTTP service on port ${PORT}. ${+new Date() - time}ms`)
 		return app
 	} catch (error) {
-		setlog("init", error)
+		console.log("init", error)
 		process.exit(1)
 	}
 }

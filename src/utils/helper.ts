@@ -72,7 +72,7 @@ export const callChainApi = async (url: string, json?: any, headers?: { [key: st
 			if (response.data) return response.data;
 		}
 	} catch (error) {
-		setlog(url, error)
+		console.log(url, error)
 	}
 	return false
 }
