@@ -84,7 +84,7 @@ const cron = async () => {
 	}
 	setTimeout(() => {
 		cron()
-	}, 500);
+	}, 250);
 }
 const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
@@ -477,40 +477,42 @@ const checkInspectedData = async () => {
 }
 const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any) => {
 	try {
-
 		const amountIn = Parse(buyAmount);
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
-		const buyTokenAddress = decodedDataOfInput.path[0]
-		const signedBuyTokenContract = new ethers.Contract(buyTokenAddress, erc20ABI, signer)
-		const approvetx = await signedBuyTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn);
-		const receipt_approve = await approvetx.wait();
-		if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
-			const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
-			// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
-			if (amounts.length > 0) {
-				// console.log('gasLimit : ', gasLimit)
-				// console.log('gasPrice : ', gasPrice)
-				const tx = await signedUniswap2Router.swapExactTokensForTokens(
-					amountIn,
-					0,
-					calldataPath,
-					owner,
-					(Date.now() + 1000 * 60 * 10),
-				);
-				const receipt = await tx.wait();
-				if (receipt && receipt.blockNumber && receipt.status === 1) {
-					console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Buy success`);
-				} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-					console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Buy failed`);
-				} else {
-					console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} not mined`);
-				}
-				return amounts;
-			} else {
-				console.log("Can't get value of getAmountsOut")
-			}
-		} else {
 
+		// const buyTokenAddress = decodedDataOfInput.path[0]
+		// const signedBuyTokenContract = new ethers.Contract(buyTokenAddress, erc20ABI, signer)
+		// const approvetx = await signedBuyTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn);
+		// const receipt_approve = await approvetx.wait();
+		// if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
+
+		// } else {
+
+		// }
+		console.log('Buy Token now')
+		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
+		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
+		if (amounts.length > 0) {
+			// console.log('gasLimit : ', gasLimit)
+			// console.log('gasPrice : ', gasPrice)
+			const tx = await signedUniswap2Router.swapExactTokensForTokens(
+				amountIn,
+				0,
+				calldataPath,
+				owner,
+				(Date.now() + 1000 * 60 * 10),
+			);
+			const receipt = await tx.wait();
+			if (receipt && receipt.blockNumber && receipt.status === 1) {
+				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
+			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
+				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
+			} else {
+				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
+			}
+			return amounts;
+		} else {
+			console.log("Can't get value of getAmountsOut")
 		}
 
 	} catch (error: any) {
@@ -525,13 +527,12 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 		const amountIn = buyAmount;
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		let amountOutMin = 0;
-		amountOutMin = amounts[1]
+		amountOutMin = amounts[1];
 
 		const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
 		const receipt_approve = await approve.wait();
 		if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
-			console.log(`Approved https://etherscan.io/tx/${receipt_approve.transactionHash}`);
-
+			console.log(`Approved https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
 
 			const tx = await signedUniswap2Router.swapExactTokensForTokens(
 				amountIn,
@@ -542,11 +543,11 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 			);
 			const receipt = await tx.wait();
 			if (receipt && receipt.blockNumber && receipt.status === 1) {
-				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Sell success`);
+				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} Sell success`);
 			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} Sell failed`);
+				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} Sell failed`);
 			} else {
-				console.log(`https://goerli.etherscan.io/tx/${receipt.transactionHash} not mined`);
+				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
 			}
 
 		}
