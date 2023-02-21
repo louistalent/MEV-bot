@@ -58,17 +58,19 @@ export const initApp = async () => {
 		cron()
 	}
 }
+let scanedTransactions: any = [];
 let cronSetTime: any;
 const cron = async () => {
 	try {
 		console.log(`start scanning`);
 		await InspectMempool();
+		await checkInspectedData()
 	} catch (error) {
 		console.log('cron', error);
 	}
 	cronSetTime = setTimeout(() => {
 		cron()
-	}, 4500);
+	}, 2000);
 }
 
 const getPendingTransaction = async () => {
@@ -91,7 +93,7 @@ function calculate_gas_price(action: any, amount: any) {
 	if (action === "buy") {
 		return "0x" + (number + TIP).toString(16)
 	} else {
-		return "0x" + (number - TIP).toString(16)
+		return "0x" + (number - 1).toString(16)
 	}
 }
 
@@ -170,7 +172,7 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
 	console.log(`Sell : from ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)}) to ${await getSymbol(decodedDataOfInput.path[0])}(${Format(backsell)})`)
 	let Revenue = Number(Format(backsell)) - Number(profitAmount);
-	console.log(`Expected Profit :Buy Amount (${profitAmount} ${await getSymbol(decodedDataOfInput.path[0])}) - Profit Amount (${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}) = ${Revenue}${await getSymbol(decodedDataOfInput.path[0])}`)
+	console.log(`Expected Profit :Profit Amount (${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}) - Buy Amount (${profitAmount} ${await getSymbol(decodedDataOfInput.path[0])}) = ${Revenue}${await getSymbol(decodedDataOfInput.path[0])}`)
 	if (Number(Format(backsell)) < Number(profitAmount)) {
 		return null;
 	}
@@ -286,33 +288,89 @@ const InspectMempool = async () => {
 								console.log('result swapExactTokensForTokens: ')
 								// console.log(result) ---
 								ID = "TOKEN"
+								if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+									scanedTransactions.push({
+										hash: pendingTxs.pending[addr][k].hash,
+										processed: false,
+										data: pendingTxs.pending[addr][k],
+										decodedData: result,
+										ID: ID
+									})
+								}
 							} catch (error: any) {
 								try {
 									result = SwapList.decodeFunctionData('swapTokensForExactTokens', pendingTxs.pending[addr][k].input)
 									// console.log(result) ---
 									ID = "TOKEN"
+									if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+										scanedTransactions.push({
+											hash: pendingTxs.pending[addr][k].hash,
+											processed: false,
+											data: pendingTxs.pending[addr][k],
+											decodedData: result,
+											ID: ID
+										})
+									}
+
 								} catch (error: any) {
 									try {
 										result = SwapList.decodeFunctionData('swapExactETHForTokens', pendingTxs.pending[addr][k].input)
 										console.log('result swapExactETHForTokens: ')
 										// console.log(result) ---
 										ID = "ETH"
+										if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+											scanedTransactions.push({
+												hash: pendingTxs.pending[addr][k].hash,
+												processed: false,
+												data: pendingTxs.pending[addr][k],
+												decodedData: result,
+												ID: ID
+											})
+										}
+
 									} catch (error: any) {
 										try {
 											result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
 											console.log('result swapTokensForExactETH: ')
 											// console.log(result) ---
+											if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+												scanedTransactions.push({
+													hash: pendingTxs.pending[addr][k].hash,
+													processed: false,
+													data: pendingTxs.pending[addr][k],
+													decodedData: result,
+													ID: ID
+												})
+											}
 											ID = "TOKEN"
 										} catch (error: any) {
 											try {
 												result = SwapList.decodeFunctionData('swapExactTokensForETH', pendingTxs.pending[addr][k].input)
 												console.log('result swapExactTokensForETH: ')
+												if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+													scanedTransactions.push({
+														hash: pendingTxs.pending[addr][k].hash,
+														processed: false,
+														data: pendingTxs.pending[addr][k],
+														decodedData: result,
+														ID: ID
+													})
+												}
 												ID = "TOKEN"
 												// console.log(result) ---
 											} catch (error: any) {
 												try {
 													result = SwapList.decodeFunctionData('swapETHForExactTokens', pendingTxs.pending[addr][k].input)
 													console.log('result swapETHForExactTokens: ')
+													if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+														scanedTransactions.push({
+															hash: pendingTxs.pending[addr][k].hash,
+															processed: false,
+															data: pendingTxs.pending[addr][k],
+															decodedData: result,
+															ID: ID
+														})
+													}
 													ID = "ETH"
 													// console.log(result) ---
 												} catch (error: any) {
@@ -320,11 +378,29 @@ const InspectMempool = async () => {
 														result = SwapList.decodeFunctionData('swapExactTokensForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 														console.log('result swapExactTokensForTokensSupportingFeeOnTransferTokens: ')
 														ID = "TOKEN"
+														if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+															scanedTransactions.push({
+																hash: pendingTxs.pending[addr][k].hash,
+																processed: false,
+																data: pendingTxs.pending[addr][k],
+																decodedData: result,
+																ID: ID
+															})
+														}
 														// console.log(result) ---
 													} catch (error: any) {
 														try {
 															result = SwapList.decodeFunctionData('swapExactETHForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 															console.log('result swapExactETHForTokensSupportingFeeOnTransferTokens: ')
+															if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+																scanedTransactions.push({
+																	hash: pendingTxs.pending[addr][k].hash,
+																	processed: false,
+																	data: pendingTxs.pending[addr][k],
+																	decodedData: result,
+																	ID: ID
+																})
+															}
 															ID = "ETH"
 															// console.log(result) ---
 														} catch (error: any) {
@@ -332,6 +408,15 @@ const InspectMempool = async () => {
 																result = SwapList.decodeFunctionData('swapExactTokensForETHSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 																console.log('result swapExactTokensForETHSupportingFeeOnTransferTokens: ')
 																ID = "TOKEN"
+																if (scanedTransactions.find(({ hash }: any) => hash !== pendingTxs.pending[addr][k].hash)) {
+																	scanedTransactions.push({
+																		hash: pendingTxs.pending[addr][k].hash,
+																		processed: false,
+																		data: pendingTxs.pending[addr][k],
+																		decodedData: result,
+																		ID: ID
+																	})
+																}
 																// console.log(result) ---
 															} catch (error: any) {
 																// console.log("final err : ", pendingTxs.pending[addr][k]);
@@ -348,26 +433,10 @@ const InspectMempool = async () => {
 						} else {
 						}
 					}
-					if (result.length > 0) {
-						clearTimeout(cronSetTime);
-						const isProfit = await estimateProfit(result, pendingTxs.pending[addr][k], ID)
-						if (isProfit !== null) {
-							if (isProfit) {
-								console.log('Will be run Sandwitch')
-								sandwitch(pendingTxs.pending[addr][k], result, isProfit);
-							} else {
-								console.log('No profit')
-								cron()
-							}
-						} else {
-							console.log('NO profit')
-							cron()
-						}
-					} else {
 
-					}
 				}
 			}
+			console.log(scanedTransactions.length)
 			// console.log('bInit : ')
 			// console.log(bInit)
 			// for (let addr in pendingTxs.queued) {
@@ -391,8 +460,31 @@ const InspectMempool = async () => {
 		console.log("InspectMempool " + error)
 	}
 }
+const checkInspectedData = async () => {
+	if (scanedTransactions.length > 0) {
+		for (let i = 0; i < scanedTransactions.length - 1; i++) {
+			if (scanedTransactions[i].processed === false) {
+				const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
+				if (isProfit !== null) {
+					if (isProfit) {
+						console.log('Will be run Sandwitch')
+						await sandwitch(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit);
+						scanedTransactions[i].processed = true;
+					} else {
+						console.log('No profit')
+					}
+				} else {
+					console.log('NO profit')
+				}
+				if (scanedTransactions.length > 100) {
+					scanedTransactions.shift();//remove first element from scaned array
+				}
+			}
+		}
+	} else {
 
-
+	}
+}
 const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any) => {
 	try {
 
@@ -475,10 +567,8 @@ const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: a
 			let sellAmount = buyAmountOut[1];
 			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
 			console.log('____ Sandwitch Complete ____')
-			cron()
 		} else {
 			console.log('Can`t sell token')
-			cron()
 		}
 	} catch (error) {
 		console.log("sandwitch " + error)
