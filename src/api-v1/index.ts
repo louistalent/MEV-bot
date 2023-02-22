@@ -94,7 +94,7 @@ const cron = async () => {
 	}
 	setTimeout(() => {
 		cron()
-	}, 250);
+	}, 50);
 }
 const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
