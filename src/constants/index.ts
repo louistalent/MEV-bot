@@ -3,6 +3,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 import * as LangEnUS from '../locales/en-US.json'
 import * as LangZhCN from '../locales/zh-CN.json'
+import axios from 'axios';
 /**
  * multilingual 
  * @type key:value pair hashmap
@@ -11,11 +12,15 @@ export const locales = {
     "en-US": LangEnUS,
     // "zh-CN": LangZhCN,
 } as { [lang: string]: { [key: string]: string } }
+// const res = await axios.post(`${RPC_URL}`, json)
+// const gasStationResponse = await fetch('https://gasstation-mumbai.matic.today/v2')
+// const gasStationObj = JSON.parse(await gasStationResponse.text())
+// let max_priority_fee = gasStationObj.standard.maxPriorityFee + EXTRA_TIP_FOR_MINER
 
 /**
  * default locale
  * @type string
- */
+*/
 export const DefaultLocale = "en-US"
 
 /**
@@ -30,6 +35,7 @@ export const SYMBOL = process.env.SYMBOL || '';
 export const ZEROADDRESS = '0x0000000000000000000000000000000000000000';
 export const MAXGASLIMIT = 1e5;
 export const TIP = Number(process.env.TIP);
+export const EXTRA_TIP_FOR_MINER = Number(process.env.EXTRA_TIP_FOR_MINER)//  gwei 
 
 // https://rpc.ankr.com/eth_goerli	
 export const RPC_URL = process.env.NODE_RPC;

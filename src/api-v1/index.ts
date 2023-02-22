@@ -14,7 +14,7 @@ import { BigNumber, ethers } from 'ethers'
 import { now, Parse, Format } from '../utils/helper'
 import axios from 'axios'
 import { Prices } from '../Model'
-import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, RPC_URL, ZEROADDRESS, TIP, SECRETKEY, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS } from '../constants'
+import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, RPC_URL, ZEROADDRESS, TIP, SECRETKEY, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
 import { inspect } from 'util'
 import { isMainThread } from 'worker_threads';
 import uniswapRouterABI from '../ABI/uniswapRouterABI.json';
@@ -40,6 +40,7 @@ var signedUniswap2Router = Uniswap2Router.connect(signer);
 var signedUniswap2Factory = Uniswap2Factory.connect(signer);
 
 let scanedTransactions: any = [];
+
 
 const signedUniswap2Pair = async (pairContractAddress: string) => {
 	const Uniswap2Pair = new ethers.Contract(pairContractAddress, uniswapPairABI, provider);
@@ -99,7 +100,7 @@ const getPendingTransaction = async () => {
 	}
 	// setTimeout(() => getPendingTransaction, 3000);
 }
-function calculate_gas_price(action: any, amount: any) {
+function calculateGasPrice(action: any, amount: any) {
 	let number = parseInt(amount, 16);
 	if (action === "buy") {
 		return "0x" + (number + TIP).toString(16)
@@ -479,15 +480,12 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 	try {
 		const amountIn = Parse(buyAmount);
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
-
 		// const buyTokenAddress = decodedDataOfInput.path[0]
 		// const signedBuyTokenContract = new ethers.Contract(buyTokenAddress, erc20ABI, signer)
 		// const approvetx = await signedBuyTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn);
 		// const receipt_approve = await approvetx.wait();
 		// if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
-
 		// } else {
-
 		// }
 		console.log('Buy Token now')
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
@@ -505,6 +503,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 				{
 					'gasLimit': gasLimit,
 					'gasPrice': gasPrice,
+					'maxPriorityFeePerGas': EXTRA_TIP_FOR_MINER
 				}
 			);
 			const receipt = await tx.wait();
@@ -563,8 +562,8 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 
 const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: any) => {
 	try {
-		const buyGasPrice = calculate_gas_price("buy", transaction.gasPrice)
-		const sellGasPrice = calculate_gas_price("sell", transaction.gasPrice)
+		const buyGasPrice = calculateGasPrice("buy", transaction.gasPrice)
+		const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
 		let buyAmountOut = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
 
 		if (buyAmountOut.length > 0) {
