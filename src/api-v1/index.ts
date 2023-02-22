@@ -55,6 +55,15 @@ const ERC20 = async (tokenAddress: string) => {
 export const initApp = async () => {
 	try {
 		console.log("initialized Application");
+		// "gas": "0x5208",
+		// "gasPrice": "0x3eb677feb",
+		// "maxFeePerGas": "0x3eb677feb",
+		// "maxPriorityFeePerGas": "0x3eb677feb",
+		console.log(ethers.utils.formatUnits('0x2bf20', 'gwei'))
+		console.log(ethers.utils.formatUnits('0x1dcd65000', 'gwei'))
+		console.log(ethers.utils.formatUnits('0x1dcd65000', 'gwei'))
+		console.log(ethers.utils.formatUnits('0x3b9aca00', 'gwei'))
+
 		cron();
 		// cron2();
 	} catch (error) {
@@ -505,6 +514,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 				{
 					'gasLimit': gasLimit,
 					'gasPrice': gasPrice,
+					'maxFeePerGas': gasPrice,
 					'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
 				}
 			);
