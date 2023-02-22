@@ -504,7 +504,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 				{
 					'gasLimit': gasLimit,
 					'gasPrice': gasPrice,
-					'maxPriorityFeePerGas': EXTRA_TIP_FOR_MINER.toString(16)
+					'maxPriorityFeePerGas': "0x" + EXTRA_TIP_FOR_MINER.toString(16)
 				}
 			);
 			const receipt = await tx.wait();
