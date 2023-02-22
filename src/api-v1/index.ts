@@ -488,7 +488,8 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		// } else {
 		// }
 		console.log('Buy Token now')
-		console.log(EXTRA_TIP_FOR_MINER.toString(16))
+		console.log('EXTRA_TIP_FOR_MINER.toString(16)', EXTRA_TIP_FOR_MINER.toString(16))
+		console.log("ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER},gwei ", ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei"))
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
 		if (amounts.length > 0) {
@@ -504,7 +505,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 				{
 					'gasLimit': gasLimit,
 					'gasPrice': gasPrice,
-					'maxPriorityFeePerGas': "0x" + EXTRA_TIP_FOR_MINER.toString(16)
+					'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
 				}
 			);
 			const receipt = await tx.wait();

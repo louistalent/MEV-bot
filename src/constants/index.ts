@@ -12,10 +12,17 @@ export const locales = {
     "en-US": LangEnUS,
     // "zh-CN": LangZhCN,
 } as { [lang: string]: { [key: string]: string } }
+// //////////////////////////////
 // const res = await axios.post(`${RPC_URL}`, json)
 // const gasStationResponse = await fetch('https://gasstation-mumbai.matic.today/v2')
 // const gasStationObj = JSON.parse(await gasStationResponse.text())
 // let max_priority_fee = gasStationObj.standard.maxPriorityFee + EXTRA_TIP_FOR_MINER
+// //////////////////////////////
+
+// //////////////////////////////
+// web3.eth.getMaxPriorityFeePerGas().then((f) => console.log("Geth estimate:  ", Number(f)));
+// Geth estimate: 2375124957
+// //////////////////////////////
 
 /**
  * default locale
