@@ -45,9 +45,8 @@ export const TIP = Number(process.env.TIP);
 export const EXTRA_TIP_FOR_MINER = Number(process.env.EXTRA_TIP_FOR_MINER)//  gwei 
 
 // https://rpc.ankr.com/eth_goerli	
-export const RPC_URL = process.env.NODE_RPC;
-
-export const ChainID = 5;
+export const RPC_URL = process.env.NODE_RPC2;
+export const ChainID = Number(process.env.CHAINID);
 export const PRIVKEY = process.env.ADMIN_PRIVKEY || '';
 export const SECRETKEY = process.env.SECKEY;
 export const UNISWAP2_ROUTER_ADDRESS = process.env.UNISWAP2_ROUTER_ADDRESS;
