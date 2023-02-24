@@ -524,7 +524,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 					// 'gasLimit': gasLimit,
 					'gasLimit': gasLimit,
 					// 'gasPrice': gasPrice,
-					'maxFeePerGas': gasPrice,
+					'maxFeePerGas': gasPrice.add(20),
 					'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
 				}
 			);
