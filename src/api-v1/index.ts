@@ -505,7 +505,6 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		// const gas = await provider.getGasPrice()
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 
-
 		const blockNumber = await provider.getBlockNumber();
 		const currentBlock = await provider.getBlock(blockNumber)
 		const nextBaseFee = calcNextBlockBaseFee(currentBlock);
@@ -523,9 +522,9 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 				(Date.now() + 1000 * 60 * 10),
 				{
 					// 'gasLimit': gasLimit,
-					'gasLimit': 250000,
+					'gasLimit': ethers.utils.parseUnits("250000", "gwei"),
 					// 'gasPrice': gasPrice,
-					'maxFeePerGas': nextBaseFee,
+					'maxFeePerGas': ethers.utils.parseUnits(nextBaseFee.toString(), "gwei"),
 					'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
 				}
 			);
