@@ -11,7 +11,7 @@ import Web3 from 'web3';
 // import { isValidCode } from '@src/utils/crc32'
 import setlog from '../setlog'
 import { BigNumber, ethers } from 'ethers'
-import { now, Parse, Format } from '../utils/helper'
+import { now, Parse, Format, hexToDecimal } from '../utils/helper'
 import axios from 'axios'
 import { Prices } from '../Model'
 import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, RPC_URL, ZEROADDRESS, TIP, SECRETKEY, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
@@ -505,13 +505,13 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		// const gas = await provider.getGasPrice()
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 
-		const blockNumber = await provider.getBlockNumber();
-		const currentBlock = await provider.getBlock(blockNumber)
-		const nextBaseFee = calcNextBlockBaseFee(currentBlock);
+		// const blockNumber = await provider.getBlockNumber();
+		// const currentBlock = await provider.getBlock(blockNumber)
+		// const nextBaseFee = calcNextBlockBaseFee(currentBlock);
+		let gasPrice_ = hexToDecimal(`${gasPrice}`);
+		let gasPrice__ = gasPrice_ + 20;
 
 		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
-		let gasPrice_ = Format(gasPrice);
-		let gasPrice__ = gasPrice_ + 20;
 		if (amounts.length > 0) {
 			console.log('gasLimit : ', gasLimit)
 			console.log('gasPrice : ', gasPrice)
@@ -526,7 +526,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 					// 'gasLimit': gasLimit,
 					'gasLimit': gasLimit,
 					// 'gasPrice': gasPrice,
-					'maxFeePerGas': Parse(gasPrice__),
+					'maxFeePerGas': gasPrice__.toString(16),
 					'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
 				}
 			);
