@@ -510,6 +510,8 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		const nextBaseFee = calcNextBlockBaseFee(currentBlock);
 
 		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
+		let gasPrice_ = Format(gasPrice);
+		let gasPrice__ = gasPrice_ + 20;
 		if (amounts.length > 0) {
 			console.log('gasLimit : ', gasLimit)
 			console.log('gasPrice : ', gasPrice)
@@ -524,7 +526,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 					// 'gasLimit': gasLimit,
 					'gasLimit': gasLimit,
 					// 'gasPrice': gasPrice,
-					'maxFeePerGas': gasPrice.add(20),
+					'maxFeePerGas': Parse(gasPrice__),
 					'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
 				}
 			);
