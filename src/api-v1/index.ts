@@ -510,6 +510,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		// const nextBaseFee = calcNextBlockBaseFee(currentBlock);
 		let gasPrice_ = hexToDecimal(`${gasPrice}`);
 		let gasPrice__ = gasPrice_ + 20;
+		console.log('maxFeePerGas gwei : ', ethers.utils.parseUnits(gasPrice__.toString(), 'gwei'))
 
 		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
 		if (amounts.length > 0) {
