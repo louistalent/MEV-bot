@@ -450,18 +450,19 @@ const checkInspectedData = async () => {
 		for (let i = 0; i <= scanedTransactions.length - 1; i++) {
 			number++;
 			if (scanedTransactions[i].processed === false) {
-				const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
-				if (isProfit !== null) {
-					if (isProfit) {
-						console.log('Will be run Sandwitch')
-						await sandwitch(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit);
-						scanedTransactions[i].processed = true;
-					} else {
-						console.log('No profit')
-					}
-				} else {
-					console.log('No profit')
-				}
+				// const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
+				// if (isProfit !== null) {
+				// 	if (isProfit) {
+				// 		console.log('Will be run Sandwitch')
+				let isProfit = 5;
+				await sandwitch(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit);
+				// 	scanedTransactions[i].processed = true;
+				// } else {
+				// 	console.log('No profit')
+				// }
+				// } else {
+				// 	console.log('No profit')
+				// }
 				if (scanedTransactions.length > 100) {
 					if (scanedTransactions[i].processed === true) {
 						scanedTransactions.shift();//remove first element from scaned array
@@ -510,7 +511,8 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		// const nextBaseFee = calcNextBlockBaseFee(currentBlock);
 		let gasPrice_ = hexToDecimal(`${gasPrice}`);
 		let gasPrice__ = gasPrice_ + 20;
-		console.log('maxFeePerGas gwei : ', ethers.utils.parseUnits(gasPrice__.toString(), 'gwei'))
+		console.log('maxFeePerGas gwei : ', ethers.utils.formatUnits(gasPrice__.toString(), 'gwei'))
+		console.log('maxPriorityFeePerGas gwei :', ethers.utils.formatUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei"))
 
 		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
 		if (amounts.length > 0) {
@@ -533,11 +535,11 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 			);
 			const receipt = await tx.wait();
 			if (receipt && receipt.blockNumber && receipt.status === 1) {
-				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
 			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
 			} else {
-				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
 			}
 			return amounts;
 		} else {
@@ -561,7 +563,7 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 		const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
 		const receipt_approve = await approve.wait();
 		if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
-			console.log(`Approved https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
+			console.log(`Approved https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
 
 			const tx = await signedUniswap2Router.swapExactTokensForTokens(
 				amountIn,
@@ -572,11 +574,11 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 			);
 			const receipt = await tx.wait();
 			if (receipt && receipt.blockNumber && receipt.status === 1) {
-				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} Sell success`);
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell success`);
 			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} Sell failed`);
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell failed`);
 			} else {
-				console.log(`https://${TESTNET ? "goerli." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
 			}
 
 		}
