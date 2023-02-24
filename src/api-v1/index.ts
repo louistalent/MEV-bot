@@ -55,15 +55,6 @@ const ERC20 = async (tokenAddress: string) => {
 export const initApp = async () => {
 	try {
 		console.log("initialized Application");
-		// "gas": "0x5208",
-		// "gasPrice": "0x3eb677feb",
-		// "maxFeePerGas": "0x3eb677feb",
-		// "maxPriorityFeePerGas": "0x3eb677feb",
-		console.log(ethers.utils.formatUnits('0x2bf20', 'gwei'))
-		console.log(ethers.utils.formatUnits('0x1dcd65000', 'gwei'))
-		console.log(ethers.utils.formatUnits('0x1dcd65000', 'gwei'))
-		console.log(ethers.utils.formatUnits('0x3b9aca00', 'gwei'))
-
 		cron();
 		// cron2();
 	} catch (error) {
@@ -94,7 +85,7 @@ const cron = async () => {
 	}
 	setTimeout(() => {
 		cron()
-	}, 50);
+	}, 200);
 }
 const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
@@ -485,6 +476,20 @@ const checkInspectedData = async () => {
 		// callback(scanedTransactions.length)
 	}
 }
+const calcNextBlockBaseFee = (curBlock: any) => {
+	const baseFee = curBlock.baseFeePerGas;
+	const gasUsed = curBlock.gasUsed;
+	const targetGasUsed = curBlock.gasLimit.div(2);
+	const delta = gasUsed.sub(targetGasUsed);
+
+	const newBaseFee = baseFee.add(
+		baseFee.mul(delta).div(targetGasUsed).div(ethers.BigNumber.from(8))
+	);
+
+	// Add 0-9 wei so it becomes a different hash each time
+	const rand = Math.floor(Math.random() * 10);
+	return newBaseFee.add(rand);
+};
 const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any) => {
 	try {
 		const amountIn = Parse(buyAmount);
@@ -497,7 +502,14 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		// } else {
 		// }
 		console.log('Buy Token now')
+		// const gas = await provider.getGasPrice()
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
+
+
+		const blockNumber = await provider.getBlockNumber();
+		const currentBlock = await provider.getBlock(blockNumber)
+		const nextBaseFee = calcNextBlockBaseFee(currentBlock);
+
 		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
 		if (amounts.length > 0) {
 			console.log('gasLimit : ', gasLimit)
@@ -510,9 +522,10 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 				owner,
 				(Date.now() + 1000 * 60 * 10),
 				{
-					'gasLimit': gasLimit,
+					// 'gasLimit': gasLimit,
+					'gasLimit': 250000,
 					// 'gasPrice': gasPrice,
-					'maxFeePerGas': gasPrice,
+					'maxFeePerGas': nextBaseFee,
 					'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
 				}
 			);
