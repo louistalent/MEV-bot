@@ -91,7 +91,6 @@ const getDecimal = (tokenAddress: string) => {
 	// return decimal;
 	const tokens = approvedTokenList as any;
 	const result = tokenAddress in tokens;
-	console.log(result);
 	if (result) {
 		return tokens[`${tokenAddress}`].decimal;
 	} else {
@@ -547,36 +546,36 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 }
 const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any) => {
 	try {
-		// const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
+		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
 		// const tokenBalance = await sellTokenContract.balanceOf(owner);
 		const amountIn = buyAmount;
-		// const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
-		// let amountOutMin = 0;
-		// amountOutMin = amounts[1];
+		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
+		let amountOutMin = 0;
+		amountOutMin = amounts[1];
 
-		// const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
-		// const receipt_approve = await approve.wait();
-		// if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
-		// 	console.log(`Approved https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
+		const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
+		const receipt_approve = await approve.wait();
+		if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
+			console.log(`Approved https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
 
-		const tx = await signedUniswap2Router.swapExactTokensForTokens(
-			amountIn,
-			0,
-			calldataPath,
-			owner,
-			(Date.now() + 1000 * 60 * 10),
-		);
-		const receipt = await tx.wait();
-		if (receipt && receipt.blockNumber && receipt.status === 1) {
-			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell success`);
-		} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell failed`);
-		} else {
-			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
+			const tx = await signedUniswap2Router.swapExactTokensForTokens(
+				amountIn,
+				0,
+				calldataPath,
+				owner,
+				(Date.now() + 1000 * 60 * 10),
+			);
+			const receipt = await tx.wait();
+			if (receipt && receipt.blockNumber && receipt.status === 1) {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell success`);
+			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell failed`);
+			} else {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
+			}
+
 		}
-
-		// }
 	} catch (error: any) {
 		console.log("Sell token : ", error)
 	}
