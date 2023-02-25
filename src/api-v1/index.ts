@@ -14,7 +14,7 @@ import { BigNumber, ethers } from 'ethers'
 import { now, Parse, Format, hexToDecimal } from '../utils/helper'
 import axios from 'axios'
 import { Prices } from '../Model'
-import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, RPC_URL, ZEROADDRESS, TIP, SECRETKEY, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
+import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, RPC_URL, ZEROADDRESS, TIP, SECRETKEY, cronTime, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
 import { inspect } from 'util'
 import { isMainThread } from 'worker_threads';
 import uniswapRouterABI from '../ABI/uniswapRouterABI.json';
@@ -40,7 +40,17 @@ const Uniswap2Factory = new ethers.Contract(UNISWAPV2_FACTORY_ADDRESS, uniswapFa
 var signedUniswap2Router = Uniswap2Router.connect(signer);
 var signedUniswap2Factory = Uniswap2Factory.connect(signer);
 let scanedTransactions: any = [];
-
+const SwapList = new ethers.utils.Interface([
+	'function swapExactTokensForTokens( uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline )',
+	'function swapTokensForExactTokens( uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline )',
+	'function swapExactETHForTokens(uint256 amountOutMin, address[] path, address to, uint256 deadline)',
+	'function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)',
+	'function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)',
+	'function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline)',
+	'function swapExactTokensForTokensSupportingFeeOnTransferTokens( uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline )',
+	'function swapExactETHForTokensSupportingFeeOnTransferTokens( uint amountOutMin, address[] calldata path, address to, uint deadline )',
+	'function swapExactTokensForETHSupportingFeeOnTransferTokens( uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline )',
+])
 
 const signedUniswap2Pair = async (pairContractAddress: string) => {
 	const Uniswap2Pair = new ethers.Contract(pairContractAddress, uniswapPairABI, provider);
@@ -82,7 +92,7 @@ const cron = async () => {
 	}
 	setTimeout(() => {
 		cron()
-	}, 200);
+	}, cronTime);
 }
 const getDecimal = (tokenAddress: string) => {
 	// let decimal = 0;
@@ -267,17 +277,7 @@ const InspectMempool = async () => {
 		const pendingTxs = await getPendingTransaction();
 		let ID = "ETH";
 		if (pendingTxs) {
-			const SwapList = new ethers.utils.Interface([
-				'function swapExactTokensForTokens( uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline )',
-				'function swapTokensForExactTokens( uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline )',
-				'function swapExactETHForTokens(uint256 amountOutMin, address[] path, address to, uint256 deadline)',
-				'function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)',
-				'function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)',
-				'function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline)',
-				'function swapExactTokensForTokensSupportingFeeOnTransferTokens( uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline )',
-				'function swapExactETHForTokensSupportingFeeOnTransferTokens( uint amountOutMin, address[] calldata path, address to, uint deadline )',
-				'function swapExactTokensForETHSupportingFeeOnTransferTokens( uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline )',
-			])
+
 
 			for (let addr in pendingTxs.pending) {
 				for (let k in pendingTxs.pending[addr]) {
@@ -533,11 +533,50 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 			const txInfo = await provider.send("eth_getTransactionByHash", [
 				`${receipt.transactionHash}`,
 			]);
-			console.log(txInfo);
+			let result;
+			try {
+				result = SwapList.decodeFunctionData('swapExactTokensForTokens', txInfo.input)
+				console.log('result swapExactTokensForTokens: ')
+			} catch (error: any) {
+				try {
+					result = SwapList.decodeFunctionData('swapTokensForExactTokens', txInfo.input)
+				} catch (error: any) {
+					try {
+						result = SwapList.decodeFunctionData('swapExactETHForTokens', txInfo.input)
+					} catch (error: any) {
+						try {
+							result = SwapList.decodeFunctionData('swapTokensForExactETH', txInfo.input)
+						} catch (error: any) {
+							try {
+								result = SwapList.decodeFunctionData('swapExactTokensForETH', txInfo.input)
+							} catch (error: any) {
+								try {
+									result = SwapList.decodeFunctionData('swapETHForExactTokens', txInfo.input)
+								} catch (error: any) {
+									try {
+										result = SwapList.decodeFunctionData('swapExactTokensForTokensSupportingFeeOnTransferTokens', txInfo.input)
+									} catch (error: any) {
+										try {
+											result = SwapList.decodeFunctionData('swapExactETHForTokensSupportingFeeOnTransferTokens', txInfo.input)
+										} catch (error: any) {
+											try {
+												result = SwapList.decodeFunctionData('swapExactTokensForETHSupportingFeeOnTransferTokens', txInfo.input)
+											} catch (error: any) {
+												// console.log("final err : ", pendingTxs.pending[addr][k]);
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			console.log('result :=> ');
+			console.log(result);
 
-			const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
-			if (amounts.length > 0) {
-				return amounts;
+			if (result) {
+				return result;
 			} else {
 				console.log("Can't get value of getAmountsOut")
 			}
