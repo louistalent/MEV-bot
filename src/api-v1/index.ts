@@ -529,7 +529,12 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
 			// Return Sell Amount
 			console.log('buy receipt : ')
-			console.log(receipt)
+			// console.log(receipt)
+			const txInfo = await provider.send("eth_getTransactionByHash", [
+				`${receipt.transactionHash}`,
+			]);
+			console.log(txInfo);
+
 			const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 			if (amounts.length > 0) {
 				return amounts;
