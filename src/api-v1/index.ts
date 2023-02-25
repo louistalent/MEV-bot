@@ -533,6 +533,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 			const txInfo = await provider.send("eth_getTransactionByHash", [
 				`${receipt.transactionHash}`,
 			]);
+			console.log(txInfo)
 			let result;
 			try {
 				result = SwapList.decodeFunctionData('swapExactTokensForTokens', txInfo.input)
