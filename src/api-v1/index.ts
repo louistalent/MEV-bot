@@ -528,6 +528,8 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		if (receipt && receipt.blockNumber && receipt.status === 1) {
 			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
 			// Return Sell Amount
+			console.log('buy receipt : ')
+			console.log(receipt)
 			const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 			if (amounts.length > 0) {
 				return amounts;
@@ -587,13 +589,13 @@ const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: a
 		const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
 		let buyAmountOut = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
 
-		if (buyAmountOut.length > 0) {
-			let sellAmount = buyAmountOut[1];
-			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
-			console.log('____ Sandwitch Complete ____')
-		} else {
-			console.log('Can`t sell token')
-		}
+		// if (buyAmountOut.length > 0) {
+		// 	let sellAmount = buyAmountOut[1];
+		// 	await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
+		// 	console.log('____ Sandwitch Complete ____')
+		// } else {
+		// 	console.log('Can`t sell token')
+		// }
 	} catch (error) {
 		console.log("sandwitch " + error)
 	}
