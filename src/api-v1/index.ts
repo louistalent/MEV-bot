@@ -23,6 +23,7 @@ import uniswapPairABI from '../ABI/uniswapPairABI.json';
 import erc20ABI from '../ABI/erc20ABI.json';
 import { Transaction } from 'mongodb';
 import { sign } from 'crypto';
+import approvedTokenList from "../constants/approvedTokenList.json";
 
 const web3 = new Web3(RPC_URL)
 const router = express.Router()
@@ -38,7 +39,6 @@ const Uniswap2Factory = new ethers.Contract(UNISWAPV2_FACTORY_ADDRESS, uniswapFa
 
 var signedUniswap2Router = Uniswap2Router.connect(signer);
 var signedUniswap2Factory = Uniswap2Factory.connect(signer);
-
 let scanedTransactions: any = [];
 
 
@@ -52,15 +52,12 @@ const ERC20 = async (tokenAddress: string) => {
 	return signedERC20Contract;
 }
 
-export const initApp = async () => {
+export const initApp = () => {
 	try {
 		console.log("initialized Application");
 		cron();
-		// cron2();
 	} catch (error) {
-		// setTimeout(cron, 1000);
 		cron()
-		// cron2();
 	}
 }
 // const cron2 = async () => {
@@ -86,6 +83,27 @@ const cron = async () => {
 	setTimeout(() => {
 		cron()
 	}, 200);
+}
+const getDecimal = (tokenAddress: string) => {
+	// let decimal = 0;
+	// let contract = await ERC20(tokenAddress);
+	// decimal = await contract.decimals()
+	// return decimal;
+	const tokens = approvedTokenList as any;
+	const result = tokenAddress in tokens;
+	console.log(result);
+	if (result) {
+		return tokens[`${tokenAddress}`].decimal;
+	} else {
+		return 18;
+	}
+}
+const getSymbol = async (tokenAddress: string) => {
+	let SYMBOL = "";
+	let contract = await ERC20(tokenAddress);
+	SYMBOL = await contract.symbol()
+
+	return SYMBOL;
 }
 const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
@@ -137,26 +155,12 @@ const botAmountForPurchase = async (transaction: any, decodedDataOfInput: any, m
 	return botPurchaseAmount;
 
 }
-const getDecimal = async (tokenAddress: string) => {
-	let decimal = 0;
-	let contract = await ERC20(tokenAddress);
-	decimal = await contract.decimals()
-
-	return decimal;
-}
-const getSymbol = async (tokenAddress: string) => {
-	let SYMBOL = "";
-	let contract = await ERC20(tokenAddress);
-	SYMBOL = await contract.symbol()
-
-	return SYMBOL;
-}
 const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any) => {
 	const pairContractAddress = await signedUniswap2Factory.getPair(decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 	const signedUniswap2Pair_ = await signedUniswap2Pair(pairContractAddress)
 	const poolToken0 = await signedUniswap2Pair_.token0();
-
 	const pairReserves = await signedUniswap2Pair_.getReserves();
+
 	let poolIn = "";
 	let poolOut = "";
 	if (decodedDataOfInput.path[0].toLowerCase() == poolToken0.toLowerCase()) {
@@ -167,27 +171,24 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 		poolOut = web3.utils.fromWei(pairReserves._reserve0.toString())
 	}
 
-	console.log(`Detected Swap transaction : from ${await getSymbol(decodedDataOfInput.path[0])} to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}`)
-	let decimalIn = await getDecimal(decodedDataOfInput.path[0])
-	let decimalOut = await getDecimal(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
+	console.log(`Detected Swap transaction`)
+	let decimalIn = getDecimal(decodedDataOfInput.path[0])
+	let decimalOut = getDecimal(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 
 	let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
-	console.log(`Buy : from ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)})`)
+	console.log(`Buy : from (${profitAmount}) to (${Format(frontbuy)})`)
 	let changedPoolIn = Number(poolIn) + Number(profitAmount);
 	let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
 
 	let UserTx = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(changedPoolIn, decimalIn), Parse(changedPoolOut, decimalOut));
 	changedPoolIn = changedPoolIn + profitAmount;
 	changedPoolOut = changedPoolOut - Number(Format(UserTx));
-	// console.log('changedPoolOut :', changedPoolOut)
-	// console.log('changedPoolIn :', changedPoolIn)
 
-	console.log(`User : from ${await getSymbol(decodedDataOfInput.path[0])}(${profitAmount}) to ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(UserTx)})`)
-
+	console.log(`User : from (${profitAmount}) to (${Format(UserTx)})`)
 	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
-	console.log(`Sell : from ${await getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])}(${Format(frontbuy)}) to ${await getSymbol(decodedDataOfInput.path[0])}(${Format(backsell)})`)
+	console.log(`Sell : from (${Format(frontbuy)}) to (${Format(backsell)})`)
 	let Revenue = Number(Format(backsell)) - Number(profitAmount);
-	console.log(`Expected Profit :Profit Amount (${Format(backsell)} ${await getSymbol(decodedDataOfInput.path[0])}) - Buy Amount (${profitAmount} ${await getSymbol(decodedDataOfInput.path[0])}) = ${Revenue} ${await getSymbol(decodedDataOfInput.path[0])}`)
+	console.log(`Expected Profit :Profit Amount (${Format(backsell)}) - Buy Amount (${profitAmount}) = ${Revenue}`)
 	if (Number(Format(backsell)) < Number(profitAmount)) {
 		return null;
 	}
@@ -195,7 +196,6 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 }
 const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: string) => {
 	try {
-
 		let profitAmount: number = 0;
 		const txValue = web3.utils.fromWei(transaction.value.toString());
 		let amountOutMin = '';
@@ -450,22 +450,27 @@ const checkInspectedData = async () => {
 		for (let i = 0; i <= scanedTransactions.length - 1; i++) {
 			number++;
 			if (scanedTransactions[i].processed === false) {
-				const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
-				if (isProfit !== null) {
-					if (isProfit) {
-						console.log('Will be run Sandwitch')
-						await sandwitch(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit);
-						scanedTransactions[i].processed = true;
+				const exist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
+				if (exist) {
+					const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
+					if (isProfit !== null) {
+						if (isProfit) {
+							console.log('Will be run Sandwitch')
+							await sandwitch(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit);
+							scanedTransactions[i].processed = true;
+						} else {
+							console.log('No profit')
+						}
 					} else {
 						console.log('No profit')
 					}
-				} else {
-					console.log('No profit')
-				}
-				if (scanedTransactions.length > 100) {
-					if (scanedTransactions[i].processed === true) {
-						scanedTransactions.shift();//remove first element from scaned array
+					if (scanedTransactions.length > 100) {
+						if (scanedTransactions[i].processed === true) {
+							scanedTransactions.shift();//remove first element from scaned array
+						}
 					}
+				} else {
+					console.log('Not approved token')
 				}
 			}
 			// if (number === scanedTransactions.length - 1) {
@@ -495,54 +500,45 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		const amountIn = Parse(buyAmount);
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
 		// const buyTokenAddress = decodedDataOfInput.path[0]
-		// const signedBuyTokenContract = new ethers.Contract(buyTokenAddress, erc20ABI, signer)
-		// const approvetx = await signedBuyTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn);
-		// const receipt_approve = await approvetx.wait();
-		// if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
-		// } else {
-		// }
-		console.log('Buy Token now')
 		// const gas = await provider.getGasPrice()
-		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
-
 		// const blockNumber = await provider.getBlockNumber();
 		// const currentBlock = await provider.getBlock(blockNumber)
 		// const nextBaseFee = calcNextBlockBaseFee(currentBlock);
-		let gasPrice_ = hexToDecimal(`${gasPrice}`);
-		let gasPrice__ = gasPrice_ + 20;
-		console.log('maxFeePerGas gwei : ', ethers.utils.formatUnits(gasPrice__.toString(), 'gwei'))
-		console.log('maxPriorityFeePerGas gwei :', ethers.utils.formatUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei"))
 
-		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
-		if (amounts.length > 0) {
-			console.log('gasLimit : ', gasLimit)
-			console.log('gasPrice : ', gasPrice)
-			console.log('Buy Token now (swapExactTokensForTokens)')
-			const tx = await signedUniswap2Router.swapExactTokensForTokens(
-				amountIn,
-				0,
-				calldataPath,
-				owner,
-				(Date.now() + 1000 * 60 * 10),
-				{
-					// 'gasLimit': gasLimit,
-					'gasLimit': gasLimit,
-					'gasPrice': gasPrice,
-					// 'maxFeePerGas': "0x" + gasPrice__.toString(16),
-					// 'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
-				}
-			);
-			const receipt = await tx.wait();
-			if (receipt && receipt.blockNumber && receipt.status === 1) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
-			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
-			} else {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
+		// let gasPrice_ = hexToDecimal(`${gasPrice}`);
+		// let gasPrice__ = gasPrice_ + 20;
+
+		console.log('gasLimit : ', gasLimit)
+		console.log('gasPrice : ', gasPrice)
+		console.log('Buy Token now')
+		const tx = await signedUniswap2Router.swapExactTokensForTokens(
+			amountIn,
+			0,
+			calldataPath,
+			owner,
+			(Date.now() + 1000 * 60 * 10),
+			{
+				// 'gasLimit': gasLimit,
+				'gasLimit': gasLimit,
+				'gasPrice': gasPrice,
+				// 'maxFeePerGas': "0x" + gasPrice__.toString(16),
+				// 'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
 			}
-			return amounts;
+		);
+		const receipt = await tx.wait();
+		if (receipt && receipt.blockNumber && receipt.status === 1) {
+			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
+			// Return Sell Amount
+			const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
+			if (amounts.length > 0) {
+				return amounts;
+			} else {
+				console.log("Can't get value of getAmountsOut")
+			}
+		} else if (receipt && receipt.blockNumber && receipt.status === 0) {
+			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
 		} else {
-			console.log("Can't get value of getAmountsOut")
+			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
 		}
 
 	} catch (error: any) {
