@@ -504,7 +504,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		// }
 		console.log('Buy Token now')
 		// const gas = await provider.getGasPrice()
-		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
+		// const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 
 		// const blockNumber = await provider.getBlockNumber();
 		// const currentBlock = await provider.getBlock(blockNumber)
@@ -515,36 +515,36 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		console.log('maxPriorityFeePerGas gwei :', ethers.utils.formatUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei"))
 
 		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
-		if (amounts.length > 0) {
-			console.log('gasLimit : ', gasLimit)
-			console.log('gasPrice : ', gasPrice)
-			console.log('Buy Token now (swapExactTokensForTokens)')
-			const tx = await signedUniswap2Router.swapExactTokensForTokens(
-				amountIn,
-				0,
-				calldataPath,
-				owner,
-				(Date.now() + 1000 * 60 * 10),
-				{
-					// 'gasLimit': gasLimit,
-					'gasLimit': gasLimit,
-					// 'gasPrice': gasPrice,
-					'maxFeePerGas': "0x" + gasPrice__.toString(16),
-					'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
-				}
-			);
-			const receipt = await tx.wait();
-			if (receipt && receipt.blockNumber && receipt.status === 1) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
-			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
-			} else {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
+		// if (amounts.length > 0) {
+		console.log('gasLimit : ', gasLimit)
+		console.log('gasPrice : ', gasPrice)
+		console.log('Buy Token now (swapExactTokensForTokens)')
+		const tx = await signedUniswap2Router.swapExactTokensForTokens(
+			amountIn,
+			0,
+			calldataPath,
+			owner,
+			(Date.now() + 1000 * 60 * 10),
+			{
+				// 'gasLimit': gasLimit,
+				'gasLimit': gasLimit,
+				// 'gasPrice': gasPrice,
+				'maxFeePerGas': "0x" + gasPrice__.toString(16),
+				'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
 			}
-			return amounts;
+		);
+		const receipt = await tx.wait();
+		if (receipt && receipt.blockNumber && receipt.status === 1) {
+			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
+		} else if (receipt && receipt.blockNumber && receipt.status === 0) {
+			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
 		} else {
-			console.log("Can't get value of getAmountsOut")
+			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
 		}
+		// return amounts;
+		// } else {
+		// 	console.log("Can't get value of getAmountsOut")
+		// }
 
 	} catch (error: any) {
 		console.log("buy token : ", error)
@@ -593,13 +593,13 @@ const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: a
 		const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
 		let buyAmountOut = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
 
-		if (buyAmountOut.length > 0) {
-			let sellAmount = buyAmountOut[1];
-			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
-			console.log('____ Sandwitch Complete ____')
-		} else {
-			console.log('Can`t sell token')
-		}
+		// if (buyAmountOut.length > 0) {
+		// 	let sellAmount = buyAmountOut[1];
+		// 	await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
+		// 	console.log('____ Sandwitch Complete ____')
+		// } else {
+		// 	console.log('Can`t sell token')
+		// }
 	} catch (error) {
 		console.log("sandwitch " + error)
 	}
