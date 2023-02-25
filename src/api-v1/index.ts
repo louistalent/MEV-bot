@@ -40,6 +40,8 @@ const Uniswap2Factory = new ethers.Contract(UNISWAPV2_FACTORY_ADDRESS, uniswapFa
 var signedUniswap2Router = Uniswap2Router.connect(signer);
 var signedUniswap2Factory = Uniswap2Factory.connect(signer);
 let scanedTransactions: any = [];
+let sellAmountOfBot: any;
+
 const SwapList = new ethers.utils.Interface([
 	'function swapExactTokensForTokens( uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline )',
 	'function swapTokensForExactTokens( uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline )',
@@ -185,6 +187,7 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	let decimalOut = getDecimal(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 
 	let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
+	sellAmountOfBot = frontbuy;
 	console.log(`Buy : from (${profitAmount}) to (${Format(frontbuy)})`)
 	let changedPoolIn = Number(poolIn) + Number(profitAmount);
 	let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
@@ -217,20 +220,6 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 			amountOut = web3.utils.fromWei(decodedDataOfInput.amountOut.toString())
 			isMinAmount = false;
 		}
-		// ****************************** formula **************************************************
-		// // swap X for Y =  pay X token, recieve Y token
-		// const constant_product = X * Y;
-		// const marketPrice = X % Y;
-		// const newXpool = X + newXToken;
-		// const newYPool = constant_product / newXpool
-		// const receivedY = Y - newYPool;
-		// const paidToken = newXToken % receivedY
-		// const priceImpactPercent = paidToken % marketPrice * 100 - 100
-
-		// optimized
-		// const paidToken = newXToken % Y - (X * Y) / (X + newXToken)
-		// const priceImpactPercent = paidToken % (X % Y) * 100 - 100
-		// ****************************** formula **************************************************
 
 		if (Number(amountOutMin) === 0 || Number(amountOut) === 0) {
 			if (ID === "TOKEN") {
@@ -527,60 +516,6 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		const receipt = await tx.wait();
 		if (receipt && receipt.blockNumber && receipt.status === 1) {
 			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
-			// Return Sell Amount
-			console.log('buy receipt : ')
-			// console.log(receipt)
-			const txInfo = await provider.send("eth_getTransactionByHash", [
-				`${receipt.transactionHash}`,
-			]);
-			console.log(txInfo)
-			let result;
-			try {
-				result = SwapList.decodeFunctionData('swapExactTokensForTokens', txInfo.input)
-				console.log('result swapExactTokensForTokens: ')
-			} catch (error: any) {
-				try {
-					result = SwapList.decodeFunctionData('swapTokensForExactTokens', txInfo.input)
-				} catch (error: any) {
-					try {
-						result = SwapList.decodeFunctionData('swapExactETHForTokens', txInfo.input)
-					} catch (error: any) {
-						try {
-							result = SwapList.decodeFunctionData('swapTokensForExactETH', txInfo.input)
-						} catch (error: any) {
-							try {
-								result = SwapList.decodeFunctionData('swapExactTokensForETH', txInfo.input)
-							} catch (error: any) {
-								try {
-									result = SwapList.decodeFunctionData('swapETHForExactTokens', txInfo.input)
-								} catch (error: any) {
-									try {
-										result = SwapList.decodeFunctionData('swapExactTokensForTokensSupportingFeeOnTransferTokens', txInfo.input)
-									} catch (error: any) {
-										try {
-											result = SwapList.decodeFunctionData('swapExactETHForTokensSupportingFeeOnTransferTokens', txInfo.input)
-										} catch (error: any) {
-											try {
-												result = SwapList.decodeFunctionData('swapExactTokensForETHSupportingFeeOnTransferTokens', txInfo.input)
-											} catch (error: any) {
-												// console.log("final err : ", pendingTxs.pending[addr][k]);
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			console.log('result :=> ');
-			console.log(result);
-
-			if (result) {
-				return result;
-			} else {
-				console.log("Can't get value of getAmountsOut")
-			}
 		} else if (receipt && receipt.blockNumber && receipt.status === 0) {
 			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
 		} else {
@@ -632,15 +567,14 @@ const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: a
 	try {
 		const buyGasPrice = calculateGasPrice("buy", transaction.gasPrice)
 		const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
-		let buyAmountOut = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
+		await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
 
-		// if (buyAmountOut.length > 0) {
-		// 	let sellAmount = buyAmountOut[1];
-		// 	await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
-		// 	console.log('____ Sandwitch Complete ____')
-		// } else {
-		// 	console.log('Can`t sell token')
-		// }
+		if (sellAmountOfBot) {
+			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmountOfBot)
+			console.log('____ Sandwitch Complete ____')
+		} else {
+			console.log('Can`t sell token')
+		}
 	} catch (error) {
 		console.log("sandwitch " + error)
 	}
