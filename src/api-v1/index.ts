@@ -14,7 +14,7 @@ import { BigNumber, ethers } from 'ethers'
 import { now, Parse, Format, hexToDecimal } from '../utils/helper'
 import axios from 'axios'
 import { Prices } from '../Model'
-import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, RPC_URL, ZEROADDRESS, TIP, cronTime, SECRETKEY, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
+import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, RPC_URL, ZEROADDRESS, TIP, SECRETKEY, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
 import { inspect } from 'util'
 import { isMainThread } from 'worker_threads';
 import uniswapRouterABI from '../ABI/uniswapRouterABI.json';
@@ -85,7 +85,7 @@ const cron = async () => {
 	}
 	setTimeout(() => {
 		cron()
-	}, cronTime);
+	}, 200);
 }
 const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
@@ -450,19 +450,18 @@ const checkInspectedData = async () => {
 		for (let i = 0; i <= scanedTransactions.length - 1; i++) {
 			number++;
 			if (scanedTransactions[i].processed === false) {
-				// const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
-				// if (isProfit !== null) {
-				// 	if (isProfit) {
-				// 		console.log('Will be run Sandwitch')
-				let isProfit = 5;
-				await sandwitch(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit);
-				// 	scanedTransactions[i].processed = true;
-				// } else {
-				// 	console.log('No profit')
-				// }
-				// } else {
-				// 	console.log('No profit')
-				// }
+				const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
+				if (isProfit !== null) {
+					if (isProfit) {
+						console.log('Will be run Sandwitch')
+						await sandwitch(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit);
+						scanedTransactions[i].processed = true;
+					} else {
+						console.log('No profit')
+					}
+				} else {
+					console.log('No profit')
+				}
 				if (scanedTransactions.length > 100) {
 					if (scanedTransactions[i].processed === true) {
 						scanedTransactions.shift();//remove first element from scaned array
@@ -504,7 +503,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		// }
 		console.log('Buy Token now')
 		// const gas = await provider.getGasPrice()
-		// const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
+		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 
 		// const blockNumber = await provider.getBlockNumber();
 		// const currentBlock = await provider.getBlock(blockNumber)
@@ -515,36 +514,36 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		console.log('maxPriorityFeePerGas gwei :', ethers.utils.formatUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei"))
 
 		// amountOutMin = amounts[1].sub(amounts[1].div(100).mul(`${slippage}`));
-		// if (amounts.length > 0) {
-		console.log('gasLimit : ', gasLimit)
-		console.log('gasPrice : ', gasPrice)
-		console.log('Buy Token now (swapExactTokensForTokens)')
-		const tx = await signedUniswap2Router.swapExactTokensForTokens(
-			amountIn,
-			0,
-			calldataPath,
-			owner,
-			(Date.now() + 1000 * 60 * 10),
-			{
-				// 'gasLimit': gasLimit,
-				'gasLimit': gasLimit,
-				'gasPrice': gasPrice,
-				// 'maxFeePerGas': "0x" + gasPrice__.toString(16),
-				// 'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
+		if (amounts.length > 0) {
+			console.log('gasLimit : ', gasLimit)
+			console.log('gasPrice : ', gasPrice)
+			console.log('Buy Token now (swapExactTokensForTokens)')
+			const tx = await signedUniswap2Router.swapExactTokensForTokens(
+				amountIn,
+				0,
+				calldataPath,
+				owner,
+				(Date.now() + 1000 * 60 * 10),
+				{
+					// 'gasLimit': gasLimit,
+					'gasLimit': gasLimit,
+					'gasPrice': gasPrice,
+					// 'maxFeePerGas': "0x" + gasPrice__.toString(16),
+					// 'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
+				}
+			);
+			const receipt = await tx.wait();
+			if (receipt && receipt.blockNumber && receipt.status === 1) {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
+			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
+			} else {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
 			}
-		);
-		const receipt = await tx.wait();
-		if (receipt && receipt.blockNumber && receipt.status === 1) {
-			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
-		} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
+			return amounts;
 		} else {
-			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
+			console.log("Can't get value of getAmountsOut")
 		}
-		// return amounts;
-		// } else {
-		// 	console.log("Can't get value of getAmountsOut")
-		// }
 
 	} catch (error: any) {
 		console.log("buy token : ", error)
@@ -552,36 +551,36 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 }
 const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any) => {
 	try {
-		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
+		// const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
 		// const tokenBalance = await sellTokenContract.balanceOf(owner);
 		const amountIn = buyAmount;
-		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
-		let amountOutMin = 0;
-		amountOutMin = amounts[1];
+		// const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
+		// let amountOutMin = 0;
+		// amountOutMin = amounts[1];
 
-		const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
-		const receipt_approve = await approve.wait();
-		if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
-			console.log(`Approved https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
+		// const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
+		// const receipt_approve = await approve.wait();
+		// if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
+		// 	console.log(`Approved https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
 
-			const tx = await signedUniswap2Router.swapExactTokensForTokens(
-				amountIn,
-				0,
-				calldataPath,
-				owner,
-				(Date.now() + 1000 * 60 * 10),
-			);
-			const receipt = await tx.wait();
-			if (receipt && receipt.blockNumber && receipt.status === 1) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell success`);
-			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell failed`);
-			} else {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
-			}
-
+		const tx = await signedUniswap2Router.swapExactTokensForTokens(
+			amountIn,
+			0,
+			calldataPath,
+			owner,
+			(Date.now() + 1000 * 60 * 10),
+		);
+		const receipt = await tx.wait();
+		if (receipt && receipt.blockNumber && receipt.status === 1) {
+			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell success`);
+		} else if (receipt && receipt.blockNumber && receipt.status === 0) {
+			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell failed`);
+		} else {
+			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
 		}
+
+		// }
 	} catch (error: any) {
 		console.log("Sell token : ", error)
 	}
@@ -593,13 +592,13 @@ const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: a
 		const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
 		let buyAmountOut = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
 
-		// if (buyAmountOut.length > 0) {
-		// 	let sellAmount = buyAmountOut[1];
-		// 	await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
-		// 	console.log('____ Sandwitch Complete ____')
-		// } else {
-		// 	console.log('Can`t sell token')
-		// }
+		if (buyAmountOut.length > 0) {
+			let sellAmount = buyAmountOut[1];
+			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount)
+			console.log('____ Sandwitch Complete ____')
+		} else {
+			console.log('Can`t sell token')
+		}
 	} catch (error) {
 		console.log("sandwitch " + error)
 	}
