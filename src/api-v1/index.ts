@@ -14,7 +14,7 @@ import { BigNumber, ethers } from 'ethers'
 import { now, Parse, Format, hexToDecimal } from '../utils/helper'
 import axios from 'axios'
 import { Prices } from '../Model'
-import { MAXGASLIMIT, PRIVKEY, SYMBOL, TESTNET, RPC_URL, ZEROADDRESS, TIP, SECRETKEY, cronTime, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
+import { MAXGASLIMIT, SYMBOL, ETHNETWORK, CHECKED, TESTNET, RPC_URL, TIP, BOTADDRESS, cronTime, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
 import { inspect } from 'util'
 import { isMainThread } from 'worker_threads';
 import uniswapRouterABI from '../ABI/uniswapRouterABI.json';
@@ -23,14 +23,18 @@ import uniswapPairABI from '../ABI/uniswapPairABI.json';
 import erc20ABI from '../ABI/erc20ABI.json';
 import { Transaction } from 'mongodb';
 import { sign } from 'crypto';
-import approvedTokenList from "../constants/approvedTokenList.json";
+import approvedTokenListTestnet from "../constants/approvedTokenListTestnet.json";
+import approvedTokenListMainnet from "../constants/approvedTokenListMainnet.json";
+import { checkPrices } from "./checkPrice";
+
+const approvedTokenList = TESTNET ? approvedTokenListTestnet as any : approvedTokenListMainnet as any;
 
 const web3 = new Web3(RPC_URL)
 const router = express.Router()
 const prices = {} as { [coin: string]: number }
 const gasPrices = {} as { [chain: string]: number };
 const provider = new ethers.providers.JsonRpcProvider(RPC_URL)
-const wallet = new ethers.Wallet(SECRETKEY, provider);
+const wallet = new ethers.Wallet(BOTADDRESS, provider);
 const signer = wallet.connect(provider);
 const owner = wallet.address;
 
@@ -41,6 +45,7 @@ var signedUniswap2Router = Uniswap2Router.connect(signer);
 var signedUniswap2Factory = Uniswap2Factory.connect(signer);
 let scanedTransactions: any = [];
 let sellAmountOfBot: any;
+let nextBaseFee;
 
 const SwapList = new ethers.utils.Interface([
 	'function swapExactTokensForTokens( uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline )',
@@ -58,32 +63,30 @@ const signedUniswap2Pair = async (pairContractAddress: string) => {
 	const Uniswap2Pair = new ethers.Contract(pairContractAddress, uniswapPairABI, provider);
 	return Uniswap2Pair
 }
-const ERC20 = async (tokenAddress: string) => {
-	const ERC20Contract = new ethers.Contract(tokenAddress, erc20ABI, provider);
-	let signedERC20Contract = ERC20Contract.connect(signer);
-	return signedERC20Contract;
-}
 
-export const initApp = () => {
+export const initApp = async () => {
 	try {
 		console.log("initialized Application");
-		cron();
+		// checkPrices("token");
+		let check = await checkRun();
+		if (check) {
+			cron();
+		} else {
+			console.log('insufficient value')
+		}
 	} catch (error) {
 		cron()
 	}
 }
-// const cron2 = async () => {
-// 	await checkInspectedData((para: any) => {
-// 		if (para) {
-// 			cron2()
-// 		}
-// 		console.log('loop checkInspectedData function')
-// 		let cron2_ = setTimeout(() => {
-// 			cron2()
-// 		}, 1000);
-// 		clearTimeout(cron2_);
-// 	});
-// }
+const checkRun = async () => {
+	const balance = await provider.getBalance(wallet.address);
+	let VALUE = ethers.utils.formatEther(balance);
+	if (Number(VALUE) > ETHNETWORK || TESTNET) {
+		return true;
+	} else {
+		return false;
+	}
+}
 const cron = async () => {
 	try {
 		console.log(`start scanning`);
@@ -97,11 +100,7 @@ const cron = async () => {
 	}, cronTime);
 }
 const getDecimal = (tokenAddress: string) => {
-	// let decimal = 0;
-	// let contract = await ERC20(tokenAddress);
-	// decimal = await contract.decimals()
-	// return decimal;
-	const tokens = approvedTokenList as any;
+	const tokens = approvedTokenList;
 	const result = tokenAddress in tokens;
 	if (result) {
 		return tokens[`${tokenAddress}`].decimal;
@@ -110,11 +109,13 @@ const getDecimal = (tokenAddress: string) => {
 	}
 }
 const getSymbol = async (tokenAddress: string) => {
-	let SYMBOL = "";
-	let contract = await ERC20(tokenAddress);
-	SYMBOL = await contract.symbol()
-
-	return SYMBOL;
+	const tokens = approvedTokenList;
+	const result = tokenAddress in tokens;
+	if (result) {
+		return tokens[`${tokenAddress}`].symbol;
+	} else {
+		return 'token';
+	}
 }
 const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
@@ -127,9 +128,8 @@ const getPendingTransaction = async () => {
 	} catch (err) {
 		console.log(err.message, err.stack)
 	}
-	// setTimeout(() => getPendingTransaction, 3000);
 }
-function calculateGasPrice(action: any, amount: any) {
+const calculateGasPrice = (action: any, amount: any) => {
 	let number = parseInt(amount, 16);
 	if (action === "buy") {
 		return "0x" + (number + TIP).toString(16)
@@ -156,8 +156,6 @@ const botAmountForPurchase = async (transaction: any, decodedDataOfInput: any, m
 
 	console.log(pairPool)
 	const slippage = ((Number(transactionAmount) - Number(minAmount)) / Number(minAmount)) * 100;
-
-	// We should buy token slippage - 0.2%. so we should change price Image with slippage - 0.2
 	let X = pairPool[0];
 	let Y = pairPool[1];
 	let marketPrice = X / Y;
@@ -185,10 +183,12 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	console.log(`Detected Swap transaction`)
 	let decimalIn = getDecimal(decodedDataOfInput.path[0])
 	let decimalOut = getDecimal(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
+	let fromToken = getSymbol(decodedDataOfInput.path[0])
+	let toToken = getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 
 	let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
 	sellAmountOfBot = frontbuy;
-	console.log(`Buy : from (${profitAmount}) to (${Format(frontbuy)})`)
+	console.log(`Buy : from (${profitAmount} ${fromToken}) to (${Format(frontbuy)})`)
 	let changedPoolIn = Number(poolIn) + Number(profitAmount);
 	let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
 
@@ -266,18 +266,13 @@ const InspectMempool = async () => {
 		const pendingTxs = await getPendingTransaction();
 		let ID = "ETH";
 		if (pendingTxs) {
-
-
 			for (let addr in pendingTxs.pending) {
 				for (let k in pendingTxs.pending[addr]) {
 					let result: any = [];
 					if (pendingTxs.pending[addr][k].to != null) {
 						if (pendingTxs.pending[addr][k].to.toLowerCase() == UNISWAP2_ROUTER_ADDRESS.toLowerCase()) {
-							console.log('uniswap router address: ')
 							try {
 								result = SwapList.decodeFunctionData('swapExactTokensForTokens', pendingTxs.pending[addr][k].input)
-								console.log('result swapExactTokensForTokens: ')
-								// console.log(result) ---
 								ID = "TOKEN"
 								if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 									scanedTransactions.push({
@@ -288,11 +283,9 @@ const InspectMempool = async () => {
 										ID: ID
 									})
 								}
-								console.log('scanedTransactions', scanedTransactions)
 							} catch (error: any) {
 								try {
 									result = SwapList.decodeFunctionData('swapTokensForExactTokens', pendingTxs.pending[addr][k].input)
-									// console.log(result) ---
 									ID = "TOKEN"
 									if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 										scanedTransactions.push({
@@ -303,12 +296,10 @@ const InspectMempool = async () => {
 											ID: ID
 										})
 									}
-
 								} catch (error: any) {
 									try {
 										result = SwapList.decodeFunctionData('swapExactETHForTokens', pendingTxs.pending[addr][k].input)
 										console.log('result swapExactETHForTokens: ')
-										// console.log(result) ---
 										ID = "ETH"
 										if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 											scanedTransactions.push({
@@ -319,12 +310,9 @@ const InspectMempool = async () => {
 												ID: ID
 											})
 										}
-
 									} catch (error: any) {
 										try {
 											result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
-											console.log('result swapTokensForExactETH: ')
-											// console.log(result) ---
 											if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 												scanedTransactions.push({
 													hash: pendingTxs.pending[addr][k].hash,
@@ -349,7 +337,6 @@ const InspectMempool = async () => {
 													})
 												}
 												ID = "TOKEN"
-												// console.log(result) ---
 											} catch (error: any) {
 												try {
 													result = SwapList.decodeFunctionData('swapETHForExactTokens', pendingTxs.pending[addr][k].input)
@@ -364,7 +351,6 @@ const InspectMempool = async () => {
 														})
 													}
 													ID = "ETH"
-													// console.log(result) ---
 												} catch (error: any) {
 													try {
 														result = SwapList.decodeFunctionData('swapExactTokensForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
@@ -379,7 +365,6 @@ const InspectMempool = async () => {
 																ID: ID
 															})
 														}
-														// console.log(result) ---
 													} catch (error: any) {
 														try {
 															result = SwapList.decodeFunctionData('swapExactETHForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
@@ -394,7 +379,6 @@ const InspectMempool = async () => {
 																})
 															}
 															ID = "ETH"
-															// console.log(result) ---
 														} catch (error: any) {
 															try {
 																result = SwapList.decodeFunctionData('swapExactTokensForETHSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
@@ -409,10 +393,15 @@ const InspectMempool = async () => {
 																		ID: ID
 																	})
 																}
-																// console.log(result) ---
 															} catch (error: any) {
-																// console.log("final err : ", pendingTxs.pending[addr][k]);
-																// console.log("final err : ");
+																if (CHECKED !== 1) {
+																	checkPrices("token");
+																} else {
+																	const gas = await provider.getGasPrice()
+																	const blockNumber = await provider.getBlockNumber();
+																	const currentBlock = await provider.getBlock(blockNumber)
+																	nextBaseFee = calcNextBlockBaseFee(currentBlock);
+																}
 															}
 														}
 													}
@@ -454,16 +443,13 @@ const checkInspectedData = async () => {
 					}
 					if (scanedTransactions.length > 100) {
 						if (scanedTransactions[i].processed === true) {
-							scanedTransactions.shift();//remove first element from scaned array
+							scanedTransactions.shift();
 						}
 					}
 				} else {
 					console.log('Not approved token')
 				}
 			}
-			// if (number === scanedTransactions.length - 1) {
-			// 	callback(scanedTransactions.length)
-			// }
 		}
 	} else {
 		// callback(scanedTransactions.length)
@@ -478,8 +464,6 @@ const calcNextBlockBaseFee = (curBlock: any) => {
 	const newBaseFee = baseFee.add(
 		baseFee.mul(delta).div(targetGasUsed).div(ethers.BigNumber.from(8))
 	);
-
-	// Add 0-9 wei so it becomes a different hash each time
 	const rand = Math.floor(Math.random() * 10);
 	return newBaseFee.add(rand);
 };
@@ -487,17 +471,6 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 	try {
 		const amountIn = Parse(buyAmount);
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
-		// const buyTokenAddress = decodedDataOfInput.path[0]
-		// const gas = await provider.getGasPrice()
-		// const blockNumber = await provider.getBlockNumber();
-		// const currentBlock = await provider.getBlock(blockNumber)
-		// const nextBaseFee = calcNextBlockBaseFee(currentBlock);
-
-		// let gasPrice_ = hexToDecimal(`${gasPrice}`);
-		// let gasPrice__ = gasPrice_ + 20;
-
-		console.log('gasLimit : ', gasLimit)
-		console.log('gasPrice : ', gasPrice)
 		console.log('Buy Token now')
 		const tx = await signedUniswap2Router.swapExactTokensForTokens(
 			amountIn,
@@ -562,7 +535,6 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 		console.log("Sell token : ", error)
 	}
 }
-
 const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: any) => {
 	try {
 		const buyGasPrice = calculateGasPrice("buy", transaction.gasPrice)
@@ -579,15 +551,6 @@ const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: a
 		console.log("sandwitch " + error)
 	}
 }
-
-const processTxs = async () => {
-	try {
-
-	} catch (error) {
-		console.log("processTxs " + error)
-	}
-}
-
 router.post('/', async (req: express.Request, res: express.Response) => {
 	try {
 		const { jsonrpc, method, params, id } = req.body as RpcRequestType;

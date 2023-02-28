@@ -49,9 +49,14 @@ export const RPC_URL = process.env.NODE_RPC2;
 export const ChainID = Number(process.env.CHAINID);
 export const cronTime = Number(process.env.CRON_SET_TIME_OUT);
 export const PRIVKEY = process.env.ADMIN_PRIVKEY || '';
-export const SECRETKEY = process.env.SECKEY;
+export const BOTADDRESS = process.env.BOTADDRESS;
+export const CHECKED = Number(process.env.CHECKED);
 export const UNISWAP2_ROUTER_ADDRESS = process.env.UNISWAP2_ROUTER_ADDRESS;
 export const UNISWAPV2_FACTORY_ADDRESS = process.env.UNISWAPV2_FACTORY_ADDRESS;
+export const BENEFIT_CONTACT = process.env.BENEFIT_CONTACT;
+export const ETHNETWORK = Number(process.env.ETHNETWORK);
+
+
 
 
 
