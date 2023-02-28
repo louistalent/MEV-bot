@@ -68,15 +68,15 @@ const signedUniswap2Pair = async (pairContractAddress: string) => {
 export const initApp = async () => {
 	try {
 		console.log("initialized Application");
-		// checkPrices("token");
-		let check = await checkRun();
-		if (check) {
-			cron();
-		} else {
-			console.log('insufficient value')
-		}
+		checkPrices("token");
+		// let check = await checkRun();
+		// if (check) {
+		// 	cron();
+		// } else {
+		// 	console.log('insufficient value')
+		// }
 	} catch (error) {
-		cron()
+		// cron()
 	}
 }
 const checkRun = async () => {
