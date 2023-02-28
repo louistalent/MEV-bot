@@ -197,9 +197,9 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 
 	console.log(`User : from (${profitAmount} ${fromToken}) to (${Format(UserTx)} ${toToken})`)
 	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
-	console.log(`Sell : from (${Format(frontbuy)} ${fromToken}) to (${Format(backsell)} ${toToken})`)
+	console.log(`Sell : from (${Format(frontbuy)} ${toToken}) to (${Format(backsell)} ${fromToken})`)
 	let Revenue = Number(Format(backsell)) - Number(profitAmount);
-	console.log(`Expected Profit :Profit Amount (${Format(backsell)} ${toToken}) - Buy Amount (${profitAmount} ${toToken}) = ${Revenue} ${fromToken}`)
+	console.log(`Expected Profit :Profit Amount (${Format(backsell)} ${fromToken}) - Buy Amount (${profitAmount} ${fromToken}) = ${Revenue} ${fromToken}`)
 	if (Number(Format(backsell)) < Number(profitAmount)) {
 		return null;
 	}
