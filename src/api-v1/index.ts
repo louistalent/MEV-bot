@@ -107,7 +107,7 @@ const getDecimal = (tokenAddress: string) => {
 		return 18;
 	}
 }
-const getSymbol = async (tokenAddress: string) => {
+const getSymbol = (tokenAddress: string) => {
 	const tokens = approvedTokenList;
 	const result = tokenAddress in tokens;
 	if (result) {
@@ -187,7 +187,7 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 
 	let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
 	sellAmountOfBot = frontbuy;
-	console.log(`Buy : from (${profitAmount} ${fromToken}) to (${Format(frontbuy)})`)
+	console.log(`Buy : from (${profitAmount} ${fromToken}) to (${Format(frontbuy)} ${toToken})`)
 	let changedPoolIn = Number(poolIn) + Number(profitAmount);
 	let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
 
@@ -195,11 +195,11 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	changedPoolIn = changedPoolIn + profitAmount;
 	changedPoolOut = changedPoolOut - Number(Format(UserTx));
 
-	console.log(`User : from (${profitAmount}) to (${Format(UserTx)})`)
+	console.log(`User : from (${profitAmount} ${fromToken}) to (${Format(UserTx)} ${toToken})`)
 	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
-	console.log(`Sell : from (${Format(frontbuy)}) to (${Format(backsell)})`)
+	console.log(`Sell : from (${Format(frontbuy)} ${fromToken}) to (${Format(backsell)} ${toToken})`)
 	let Revenue = Number(Format(backsell)) - Number(profitAmount);
-	console.log(`Expected Profit :Profit Amount (${Format(backsell)}) - Buy Amount (${profitAmount}) = ${Revenue}`)
+	console.log(`Expected Profit :Profit Amount (${Format(backsell)} ${toToken}) - Buy Amount (${profitAmount} ${toToken}) = ${Revenue} ${fromToken}`)
 	if (Number(Format(backsell)) < Number(profitAmount)) {
 		return null;
 	}

