@@ -14,7 +14,7 @@ import { BigNumber, ethers } from 'ethers'
 import { now, Parse, Format, hexToDecimal } from '../utils/helper'
 import axios from 'axios'
 import { Prices } from '../Model'
-import { MAXGASLIMIT, SYMBOL, ETHNETWORK, CHECKED, TESTNET, RPC_URL, TIP, BOTADDRESS, cronTime, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
+import { MAXGASLIMIT, SYMBOL, ETHNETWORK, CHECKED, TESTNET, RPC_URL, TIP, RPC_URL2, BOTADDRESS, cronTime, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
 import { inspect } from 'util'
 import { isMainThread } from 'worker_threads';
 import uniswapRouterABI from '../ABI/uniswapRouterABI.json';
@@ -34,11 +34,12 @@ const router = express.Router()
 const prices = {} as { [coin: string]: number }
 const gasPrices = {} as { [chain: string]: number };
 const provider = new ethers.providers.JsonRpcProvider(RPC_URL)
+const provider2 = new ethers.providers.JsonRpcProvider(RPC_URL2)
 const wallet = new ethers.Wallet(BOTADDRESS, provider);
 const signer = wallet.connect(provider);
 const owner = wallet.address;
 
-const Uniswap2Router = new ethers.Contract(UNISWAP2_ROUTER_ADDRESS, uniswapRouterABI, provider);
+const Uniswap2Router = new ethers.Contract(UNISWAP2_ROUTER_ADDRESS, uniswapRouterABI, provider2);
 const Uniswap2Factory = new ethers.Contract(UNISWAPV2_FACTORY_ADDRESS, uniswapFactoryABI, provider);
 
 var signedUniswap2Router = Uniswap2Router.connect(signer);
@@ -472,6 +473,8 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		const amountIn = Parse(buyAmount);
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
 		console.log('Buy Token now')
+		console.log(gasLimit)
+		console.log(gasPrice)
 		const tx = await signedUniswap2Router.swapExactTokensForTokens(
 			amountIn,
 			0,
