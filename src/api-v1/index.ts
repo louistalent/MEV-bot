@@ -119,9 +119,6 @@ const getSymbol = (tokenAddress: string) => {
 const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
 		const res = await axios.post(`${RPC_URL}`, json)
-		if (res.data.result) {
-			console.log('res.data.result : ', res.data.result)
-		}
 		return res.data.result;
 	}
 	try {
@@ -141,10 +138,10 @@ const calculateGasPrice = (action: any, amount: any) => {
 }
 const calculateETH = async (gasLimit_: any, gasPrice: any) => {
 	try {
-		let TIP = 0;
+		let TIP_ = TIP;
 		let GweiValue = ethers.utils.formatUnits(gasPrice, "gwei");
 		let gasLimit = gasLimit_.toString(); // from Hex to integer
-		let totalGwei = Number(gasLimit) * (Number(GweiValue) + TIP);
+		let totalGwei = Number(gasLimit) * (Number(GweiValue) + Number(ethers.utils.formatUnits(TIP_, "gwei")));
 		let ETHOfTransactionFee = totalGwei * 0.000000001;
 		return Number(ETHOfTransactionFee);
 	} catch (error: any) {
@@ -206,11 +203,11 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	if (Number(Format(backsell)) < Number(profitAmount)) {
 		return null;
 	}
-	return Format(backsell);
+	return Revenue;
 }
 const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: string) => {
 	try {
-		let profitAmount: number = 0;
+		let buyAmount: number = 0;
 		const txValue = web3.utils.fromWei(transaction.value.toString());
 		let amountOutMin = '';
 		let amountOut = '';
@@ -229,34 +226,49 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 				// amountOut -> amountInMax
 				let inputValueOfTransaction = isMinAmount ? decodedDataOfInput.amountIn : decodedDataOfInput.amountInMax
 				let inputValueOfTransaction_ = web3.utils.fromWei(inputValueOfTransaction.toString())
-				profitAmount = Number(inputValueOfTransaction_)
-			} else if (ID === "ETH") {
-				profitAmount = Number(txValue);
-			}
-
-			// let ETHAmountForGas = await calculateETH(transaction.gas, transaction.gasPrice)
-			// let ETHAmountOfBenefit = 0;
-			// console.log('ETHAmountForGas :', ETHAmountForGas);
-
-			const profitAmount_ = await calculateProfitAmount(decodedDataOfInput, profitAmount)
-			if (profitAmount_)
-				return profitAmount;
-		} else {//calculate slippage
-			console.log('calculate slippage : => ')
-			try {
-				// slippage = (transaction amount - expected amount) / expected amount
-				const minAmount = isMinAmount ? amountOutMin : amountOut;
-				let botPurchaseAmount = await botAmountForPurchase(transaction, decodedDataOfInput, minAmount);
-				let ETHAmountForGas = calculateETH(transaction.gas, transaction.gasPrice)
-				let ETHAmountOfBenefit = 0;
-				let profitAmount_ = await calculateProfitAmount(decodedDataOfInput, botPurchaseAmount);
+				buyAmount = Number(inputValueOfTransaction_)
+				let ETHAmountForGas = await calculateETH(transaction.gas, transaction.gasPrice)
+				// let ETHAmountOfBenefit = 0;
+				console.log('ETHAmountForGas :', ETHAmountForGas);
+				const profitAmount_ = await calculateProfitAmount(decodedDataOfInput, buyAmount)
 				if (profitAmount_)
-					return botPurchaseAmount;
-
-			} catch (error: any) {
-				console.log('Uniswap v2 error', error)
+					return buyAmount;
+			} else if (ID === "ETH") {
+				buyAmount = Number(txValue);
+				let ETHAmountForGas = await calculateETH(transaction.gas, transaction.gasPrice)
+				const ETHOfProfitAmount = await calculateProfitAmount(decodedDataOfInput, buyAmount)
+				console.log('benefit-gas= : ', Number(ETHOfProfitAmount) - ETHAmountForGas)
+				if (Number(ETHOfProfitAmount) > ETHAmountForGas)
+					return buyAmount;
+				else {
+					console.log('************ No Benefit ************')
+				}
 			}
 		}
+		// else {//calculate slippage
+		// 	console.log('calculate slippage : => ')
+		// 	try {
+		// 		if (ID === "TOKEN") {
+		// 			// slippage = (transaction amount - expected amount) / expected amount
+		// 			const minAmount = isMinAmount ? amountOutMin : amountOut;
+		// 			let botPurchaseAmount = await botAmountForPurchase(transaction, decodedDataOfInput, minAmount);
+		// 			console.log('botPurchaseAmount: ', botPurchaseAmount)
+		// 			let ETHAmountForGas = calculateETH(transaction.gas, transaction.gasPrice)
+		// 			console.log('ETHAmountForGas :', ETHAmountForGas);
+		// 			let ETHAmountOfBenefit = 0;
+		// 			let profitAmount_ = await calculateProfitAmount(decodedDataOfInput, botPurchaseAmount);
+		// 			if (profitAmount_)
+		// 				return botPurchaseAmount;
+		// 		} else if (ID === "ETH") {
+		// 			buyAmount = Number(txValue);
+		// 		} else {
+		// 			console.log("ID bug : ", ID)
+		// 		}
+
+		// 	} catch (error: any) {
+		// 		console.log('Uniswap v2 error', error)
+		// 	}
+		// }
 
 	} catch (error) {
 		console.log("estimateProfit " + error)
@@ -289,7 +301,7 @@ const InspectMempool = async () => {
 								try {
 									result = SwapList.decodeFunctionData('swapTokensForExactTokens', pendingTxs.pending[addr][k].input)
 									ID = "TOKEN"
-									if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+									if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 										scanedTransactions.push({
 											hash: pendingTxs.pending[addr][k].hash,
 											processed: false,
@@ -303,7 +315,7 @@ const InspectMempool = async () => {
 										result = SwapList.decodeFunctionData('swapExactETHForTokens', pendingTxs.pending[addr][k].input)
 										console.log('result swapExactETHForTokens: ')
 										ID = "ETH"
-										if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+										if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 											scanedTransactions.push({
 												hash: pendingTxs.pending[addr][k].hash,
 												processed: false,
@@ -315,7 +327,7 @@ const InspectMempool = async () => {
 									} catch (error: any) {
 										try {
 											result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
-											if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+											if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 												scanedTransactions.push({
 													hash: pendingTxs.pending[addr][k].hash,
 													processed: false,
@@ -329,7 +341,7 @@ const InspectMempool = async () => {
 											try {
 												result = SwapList.decodeFunctionData('swapExactTokensForETH', pendingTxs.pending[addr][k].input)
 												console.log('result swapExactTokensForETH: ')
-												if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+												if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 													scanedTransactions.push({
 														hash: pendingTxs.pending[addr][k].hash,
 														processed: false,
@@ -343,7 +355,7 @@ const InspectMempool = async () => {
 												try {
 													result = SwapList.decodeFunctionData('swapETHForExactTokens', pendingTxs.pending[addr][k].input)
 													console.log('result swapETHForExactTokens: ')
-													if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+													if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 														scanedTransactions.push({
 															hash: pendingTxs.pending[addr][k].hash,
 															processed: false,
@@ -358,7 +370,7 @@ const InspectMempool = async () => {
 														result = SwapList.decodeFunctionData('swapExactTokensForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 														console.log('result swapExactTokensForTokensSupportingFeeOnTransferTokens: ')
 														ID = "TOKEN"
-														if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+														if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 															scanedTransactions.push({
 																hash: pendingTxs.pending[addr][k].hash,
 																processed: false,
@@ -371,7 +383,7 @@ const InspectMempool = async () => {
 														try {
 															result = SwapList.decodeFunctionData('swapExactETHForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 															console.log('result swapExactETHForTokensSupportingFeeOnTransferTokens: ')
-															if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+															if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 																scanedTransactions.push({
 																	hash: pendingTxs.pending[addr][k].hash,
 																	processed: false,
@@ -386,7 +398,7 @@ const InspectMempool = async () => {
 																result = SwapList.decodeFunctionData('swapExactTokensForETHSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 																console.log('result swapExactTokensForETHSupportingFeeOnTransferTokens: ')
 																ID = "TOKEN"
-																if (scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+																if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 																	scanedTransactions.push({
 																		hash: pendingTxs.pending[addr][k].hash,
 																		processed: false,
@@ -429,28 +441,28 @@ const checkInspectedData = async () => {
 		for (let i = 0; i <= scanedTransactions.length - 1; i++) {
 			number++;
 			if (scanedTransactions[i].processed === false) {
-				const exist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
-				if (exist) {
-					const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
-					if (isProfit !== null) {
-						if (isProfit) {
-							console.log('Will be run Sandwitch')
-							await sandwitch(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit);
-							scanedTransactions[i].processed = true;
-						} else {
-							console.log('No profit')
-						}
+				// const exist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
+				// if (exist) {
+				const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
+				if (isProfit !== null) {
+					if (isProfit) {
+						console.log('************ Will be run Sandwich ************')
+						await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit, scanedTransactions[i].ID);
+						scanedTransactions[i].processed = true;
 					} else {
 						console.log('No profit')
 					}
-					if (scanedTransactions.length > 100) {
-						if (scanedTransactions[i].processed === true) {
-							scanedTransactions.shift();
-						}
-					}
 				} else {
-					console.log('Not approved token')
+					console.log('No profit')
 				}
+				if (scanedTransactions.length > 100) {
+					if (scanedTransactions[i].processed === true) {
+						scanedTransactions.shift();
+					}
+				}
+				// } else {
+				// 	console.log('Not approved token')
+				// }
 			}
 		}
 	} else {
@@ -469,27 +481,45 @@ const calcNextBlockBaseFee = (curBlock: any) => {
 	const rand = Math.floor(Math.random() * 10);
 	return newBaseFee.add(rand);
 };
-const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any) => {
+const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, ID: string) => {
 	try {
 		const amountIn = Parse(buyAmount);
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
 		console.log('Buy Token now')
 		console.log(gasLimit)
 		console.log(gasPrice)
-		const tx = await signedUniswap2Router.swapExactTokensForTokens(
-			amountIn,
-			0,
-			calldataPath,
-			owner,
-			(Date.now() + 1000 * 60 * 10),
-			{
-				// 'gasLimit': gasLimit,
-				'gasLimit': gasLimit,
-				'gasPrice': gasPrice,
-				// 'maxFeePerGas': "0x" + gasPrice__.toString(16),
-				// 'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
-			}
-		);
+		let tx;
+		if (ID === "TOKEN") {
+			tx = await signedUniswap2Router.swapExactTokensForTokens(
+				amountIn,
+				0,
+				calldataPath,
+				owner,
+				(Date.now() + 1000 * 60 * 10),
+				{
+					// 'gasLimit': gasLimit,
+					'gasLimit': gasLimit,
+					'gasPrice': gasPrice,
+					// 'maxFeePerGas': "0x" + gasPrice__.toString(16),
+					// 'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
+				}
+			);
+		} else {
+			tx = await signedUniswap2Router.swapExactETHForTokens(
+				0,
+				calldataPath,
+				owner,
+				(Date.now() + 1000 * 60 * 10),
+				{
+					// 'gasLimit': gasLimit,
+					'value': amountIn,
+					'gasLimit': gasLimit,
+					'gasPrice': gasPrice,
+					// 'maxFeePerGas': "0x" + gasPrice__.toString(16),
+					// 'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
+				}
+			);
+		}
 		const receipt = await tx.wait();
 		if (receipt && receipt.blockNumber && receipt.status === 1) {
 			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
@@ -503,7 +533,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		console.log("buy token : ", error)
 	}
 }
-const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any) => {
+const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, ID: string) => {
 	try {
 		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
@@ -539,20 +569,20 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 		console.log("Sell token : ", error)
 	}
 }
-const sandwitch = async (transaction: any, decodedDataOfInput: any, buyAmount: any) => {
+const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: any, ID: string) => {
 	try {
 		const buyGasPrice = calculateGasPrice("buy", transaction.gasPrice)
 		const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
-		await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount)
+		await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, ID)
 
 		if (sellAmountOfBot) {
-			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmountOfBot)
-			console.log('____ Sandwitch Complete ____')
+			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmountOfBot, ID)
+			console.log('____ Sandwich Complete ____')
 		} else {
 			console.log('Can`t sell token')
 		}
 	} catch (error) {
-		console.log("sandwitch " + error)
+		console.log("sandwich " + error)
 	}
 }
 router.post('/', async (req: express.Request, res: express.Response) => {
