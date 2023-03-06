@@ -120,7 +120,7 @@ const getPendingTransaction = async () => {
 	const rpc = async (json: any) => {
 		const res = await axios.post(`${RPC_URL}`, json)
 		if (res.data.result) {
-			console.log('res.data.result.pending.length : ', res.data.result.pending.length)
+			console.log('res.data.result : ', res.data.result)
 		}
 		return res.data.result;
 	}
