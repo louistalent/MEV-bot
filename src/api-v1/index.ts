@@ -132,7 +132,7 @@ const calculateGasPrice = (action: any, amount: any) => {
 	if (action === "buy") {
 		return "0x" + (number + TIP).toString(16)
 	} else {
-		return "0x" + (number - 1).toString(16)
+		return "0x" + (number - 10).toString(16)
 	}
 }
 const calculateETH = (gasLimit_: any, gasPrice: any) => {
