@@ -4,6 +4,7 @@
 require("dotenv").config()
 import * as express from 'express'
 import Web3 from 'web3';
+import fs from 'fs';
 
 // import { parse as uuidParse } from 'uuid'
 // import { now } from '@src/utils/helper'
@@ -538,14 +539,12 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 }
 const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, ID: string) => {
 	try {
-		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
+		// const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
 		const amountIn = buyAmount;
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		let amountOutMin = 0;
 		amountOutMin = amounts[1];
-		console.log('sellTokenContract.address : ', decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
-
 		// const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
 		// const receipt_approve = await approve.wait();
 		// if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
@@ -580,8 +579,12 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 			const buyReceipt = await buyTx.wait();
 			if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 1) {
 				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy success`);
+				fs.appendFileSync(`./save_tx.csv`, `___Sandwich___` + '\t\n');
+				fs.appendFileSync(`./save_tx.csv`, `Bot Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash}` + '\t\n');
+				fs.appendFileSync(`./save_tx.csv`, `User Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${transaction.hash}` + '\t\n');
 			} else if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 0) {
 				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy failed`);
+				fs.appendFileSync(`./save_tx.csv`, `Fail Bot Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash}` + '\t\n');
 			} else {
 				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} not mined`);
 			}
@@ -590,8 +593,10 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 			const sellReceipt = await sellTx.wait();
 			if (sellReceipt && sellReceipt.blockNumber && sellReceipt.status === 1) {
 				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} Sell success`);
+				fs.appendFileSync(`./save_tx.csv`, `Bot Sell :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash}` + '\t\n');
 			} else if (sellReceipt && sellReceipt.blockNumber && sellReceipt.status === 0) {
 				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} Sell failed`);
+				fs.appendFileSync(`./save_tx.csv`, `Fail Bot Sell :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash}` + '\t\n');
 			} else {
 				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} not mined`);
 			}
