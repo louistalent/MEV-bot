@@ -128,7 +128,7 @@ const calculateGasPrice = (action: any, amount: any) => {
 	if (action === "buy") {
 		return "0x" + (number + TIP).toString(16)
 	} else {
-		return "0x" + (number - 10).toString(16)
+		return "0x" + (number - 8).toString(16)
 	}
 }
 const calculateETH = (gasLimit_: any, gasPrice: any) => {
@@ -298,7 +298,8 @@ const InspectMempool = async () => {
 										processed: false,
 										data: pendingTxs.pending[addr][k],
 										decodedData: result,
-										ID: ID
+										ID: ID,
+										type: "swapExactTokensForTokens"
 									})
 								}
 							} catch (error: any) {
@@ -311,7 +312,8 @@ const InspectMempool = async () => {
 											processed: false,
 											data: pendingTxs.pending[addr][k],
 											decodedData: result,
-											ID: ID
+											ID: ID,
+											type: "swapTokensForExactTokens"
 										})
 									}
 								} catch (error: any) {
@@ -325,7 +327,8 @@ const InspectMempool = async () => {
 												processed: false,
 												data: pendingTxs.pending[addr][k],
 												decodedData: result,
-												ID: ID
+												ID: ID,
+												type: "swapExactETHForTokens"
 											})
 										}
 									} catch (error: any) {
@@ -338,7 +341,8 @@ const InspectMempool = async () => {
 													processed: false,
 													data: pendingTxs.pending[addr][k],
 													decodedData: result,
-													ID: ID
+													ID: ID,
+													type: "swapTokensForExactETH"
 												})
 											}
 										} catch (error: any) {
@@ -352,7 +356,8 @@ const InspectMempool = async () => {
 														processed: false,
 														data: pendingTxs.pending[addr][k],
 														decodedData: result,
-														ID: ID
+														ID: ID,
+														type: "swapExactTokensForETH"
 													})
 												}
 											} catch (error: any) {
@@ -366,7 +371,8 @@ const InspectMempool = async () => {
 															processed: false,
 															data: pendingTxs.pending[addr][k],
 															decodedData: result,
-															ID: ID
+															ID: ID,
+															type: "swapETHForExactTokens"
 														})
 													}
 												} catch (error: any) {
@@ -380,7 +386,8 @@ const InspectMempool = async () => {
 																processed: false,
 																data: pendingTxs.pending[addr][k],
 																decodedData: result,
-																ID: ID
+																ID: ID,
+																type: "swapExactTokensForTokensSupportingFeeOnTransferTokens"
 															})
 														}
 													} catch (error: any) {
@@ -394,7 +401,8 @@ const InspectMempool = async () => {
 																	processed: false,
 																	data: pendingTxs.pending[addr][k],
 																	decodedData: result,
-																	ID: ID
+																	ID: ID,
+																	type: "swapExactETHForTokensSupportingFeeOnTransferTokens"
 																})
 															}
 														} catch (error: any) {
@@ -408,7 +416,8 @@ const InspectMempool = async () => {
 																		processed: false,
 																		data: pendingTxs.pending[addr][k],
 																		decodedData: result,
-																		ID: ID
+																		ID: ID,
+																		type: "swapExactTokensForETHSupportingFeeOnTransferTokens"
 																	})
 																}
 															} catch (error: any) {
@@ -535,9 +544,9 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 }
 const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, ID: string) => {
 	try {
-		// const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
+		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
-		const amountIn = buyAmount;
+		// const amountIn = buyAmount;
 		// const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		// let amountOutMin = 0;
 		// amountOutMin = amounts[1];
@@ -547,7 +556,7 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 		// 	console.log(`Approved https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
 
 		const tx = await signedUniswap2Router.swapExactTokensForTokens(
-			amountIn,
+			await sellTokenContract.balanceOf(owner),
 			0,
 			calldataPath,
 			owner,
