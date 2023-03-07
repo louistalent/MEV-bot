@@ -112,7 +112,7 @@ const getSymbol = (tokenAddress: string) => {
 	if (result) {
 		return tokens[`${tokenAddress}`].symbol;
 	} else {
-		return 'token';
+		return 'ETH';
 	}
 }
 const getPendingTransaction = async () => {
@@ -135,7 +135,7 @@ const calculateGasPrice = (action: any, amount: any) => {
 		return "0x" + (number - 1).toString(16)
 	}
 }
-const calculateETH = async (gasLimit_: any, gasPrice: any) => {
+const calculateETH = (gasLimit_: any, gasPrice: any) => {
 	try {
 		let TIP_ = TIP;
 		let GweiValue = ethers.utils.formatUnits(gasPrice, "gwei");
@@ -199,7 +199,7 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
 	console.log(`Sell : from (${Format(frontbuy)} ${toToken}) to (${Format(backsell)} ${fromToken})`)
 	let Revenue = Number(Format(backsell)) - Number(profitAmount);
-	console.log(`Expected Profit :Profit Amount (${Format(backsell)} ${fromToken}) - Buy Amount (${profitAmount} ${fromToken}) = ${Revenue} ${fromToken}`)
+	console.log(`Expected Profit :Profit(${Format(backsell)} ${fromToken})-Buy(${profitAmount} ${fromToken})= ${Revenue} ${fromToken}`)
 	if (Number(Format(backsell)) < Number(profitAmount)) {
 		return null;
 	}
@@ -227,17 +227,17 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 				let inputValueOfTransaction = isMinAmount ? decodedDataOfInput.amountIn : decodedDataOfInput.amountInMax
 				let inputValueOfTransaction_ = web3.utils.fromWei(inputValueOfTransaction.toString())
 				buyAmount = Number(inputValueOfTransaction_)
-				let ETHAmountForGas = await calculateETH(transaction.gas, transaction.gasPrice)
+				let ETHAmountForGas = calculateETH(transaction.gas, transaction.gasPrice)
 				// let ETHAmountOfBenefit = 0;
 				console.log('ETHAmountForGas :', ETHAmountForGas);
-				const profitAmount_ = await calculateProfitAmount(decodedDataOfInput, buyAmount)
+				const profitAmount_: any = await calculateProfitAmount(decodedDataOfInput, buyAmount)
 				if (profitAmount_[0])
 					return [buyAmount, profitAmount_[1]];
 			} else if (ID === "ETH") {
 				buyAmount = Number(txValue);
-				let ETHAmountForGas = await calculateETH(transaction.gas, transaction.gasPrice)
-				const ETHOfProfitAmount = await calculateProfitAmount(decodedDataOfInput, buyAmount)
-				console.log('benefit-gas= : ', Number(ETHOfProfitAmount) - ETHAmountForGas)
+				let ETHAmountForGas = calculateETH(transaction.gas, transaction.gasPrice)
+				const ETHOfProfitAmount: any = await calculateProfitAmount(decodedDataOfInput, buyAmount)
+				console.log('Real: Benefit - Gas = ', Number(ETHOfProfitAmount) - Number(ETHAmountForGas))
 				if (Number(ETHOfProfitAmount[0]) > ETHAmountForGas)
 					return [buyAmount, ETHOfProfitAmount[1]];
 				else {
@@ -443,8 +443,8 @@ const checkInspectedData = async () => {
 			if (scanedTransactions[i].processed === false) {
 				// const exist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
 				// if (exist) {
-				const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
-				if (isProfit[0] !== null) {
+				const isProfit: any = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
+				if (isProfit && isProfit[0] !== null) {
 					if (isProfit[0]) {
 						console.log('************ Will be run Sandwich ************')
 						await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit[0], isProfit[1], scanedTransactions[i].ID);
