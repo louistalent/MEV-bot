@@ -20,11 +20,11 @@ async function main() {
 	{
 		for (let token in mainToken) {
 			let TOKEN = await (await ethers.getContractFactory("ERC20")).attach(`${token}`)
-			// var tx = await TOKEN.approve(
-			// 	process.env.UNISWAP2_ROUTER_ADDRESS,
-			// 	"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-			// );
-			// await tx.wait();
+			var tx = await TOKEN.approve(
+				process.env.UNISWAP2_ROUTER_ADDRESS,
+				"0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			);
+			await tx.wait();
 			console.log('approved : ' + TOKEN.address);
 		}
 	}
