@@ -18,7 +18,7 @@ async function main() {
 
 	/* ----------- ERC20 TOKEN -------------- */
 	{
-		for (let token in tokenlist) {
+		for (let token in mainToken) {
 			let TOKEN = await (await ethers.getContractFactory("ERC20_WETH")).attach(`${token}`)
 			var tx = await TOKEN.approve(
 				process.env.UNISWAP2_ROUTER_ADDRESS,
