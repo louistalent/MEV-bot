@@ -459,28 +459,32 @@ const checkInspectedData = async () => {
 		for (let i = 0; i <= scanedTransactions.length - 1; i++) {
 			number++;
 			if (scanedTransactions[i].processed === false) {
-				const fromExist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
-				const toExist = scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] in approvedTokenList;
-				if (fromExist || toExist) {//working for ETH
-					const isProfit: any = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
-					if (isProfit && isProfit[0] !== null) {
-						if (isProfit[0]) {
-							console.log('************ Will be run Sandwich ************')
-							await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit[0], isProfit[1], scanedTransactions[i].ID);
-							scanedTransactions[i].processed = true;
+				if (scanedTransactions[i].type === "swapExactETHForTokens") {
+					const fromExist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
+					const toExist = scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] in approvedTokenList;
+					if (fromExist || toExist) {//working for ETH
+						const isProfit: any = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
+						if (isProfit && isProfit[0] !== null) {
+							if (isProfit[0]) {
+								console.log('************ Will be run Sandwich ************')
+								await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit[0], isProfit[1], scanedTransactions[i].ID);
+								scanedTransactions[i].processed = true;
+							} else {
+								console.log('No profit')
+							}
 						} else {
 							console.log('No profit')
 						}
-					} else {
-						console.log('No profit')
-					}
-					if (scanedTransactions.length > 100) {
-						if (scanedTransactions[i].processed === true) {
-							scanedTransactions.shift();
+						if (scanedTransactions.length > 100) {
+							if (scanedTransactions[i].processed === true) {
+								scanedTransactions.shift();
+							}
 						}
+					} else {
+						console.log('Not approved token')
 					}
 				} else {
-					console.log('Not approved token')
+					console.log('Not type')
 				}
 			}
 		}
