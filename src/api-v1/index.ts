@@ -45,7 +45,6 @@ const Uniswap2Factory = new ethers.Contract(UNISWAPV2_FACTORY_ADDRESS, uniswapFa
 var signedUniswap2Router = Uniswap2Router.connect(signer);
 var signedUniswap2Factory = Uniswap2Factory.connect(signer);
 let scanedTransactions: any = [];
-let sellAmountOfBot: any;
 let nextBaseFee;
 
 const SwapList = new ethers.utils.Interface([
@@ -142,8 +141,10 @@ const calculateETH = async (gasLimit_: any, gasPrice: any) => {
 		let GweiValue = ethers.utils.formatUnits(gasPrice, "gwei");
 		let gasLimit = gasLimit_.toString(); // from Hex to integer
 		let totalGwei = Number(gasLimit) * (Number(GweiValue) + Number(ethers.utils.formatUnits(TIP_, "gwei")));
-		let ETHOfTransactionFee = totalGwei * 0.000000001;
-		return Number(ETHOfTransactionFee);
+		let totalGwei_ = Number(gasLimit) * (Number(GweiValue));
+		let buyETHOfTransactionFee = totalGwei * 0.000000001;
+		let sellETHOfTransactionFee = totalGwei_ * 0.000000001;
+		return Number(buyETHOfTransactionFee) + Number(sellETHOfTransactionFee);
 	} catch (error: any) {
 		console.log('calculateETH :', error)
 	}
@@ -186,7 +187,6 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	let toToken = getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 
 	let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
-	sellAmountOfBot = frontbuy;
 	console.log(`Buy : from (${profitAmount} ${fromToken}) to (${Format(frontbuy)} ${toToken})`)
 	let changedPoolIn = Number(poolIn) + Number(profitAmount);
 	let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
@@ -203,7 +203,7 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 	if (Number(Format(backsell)) < Number(profitAmount)) {
 		return null;
 	}
-	return Revenue;
+	return [Revenue, frontbuy];
 }
 const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: string) => {
 	try {
@@ -231,15 +231,15 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 				// let ETHAmountOfBenefit = 0;
 				console.log('ETHAmountForGas :', ETHAmountForGas);
 				const profitAmount_ = await calculateProfitAmount(decodedDataOfInput, buyAmount)
-				if (profitAmount_)
-					return buyAmount;
+				if (profitAmount_[0])
+					return [buyAmount, profitAmount_[1]];
 			} else if (ID === "ETH") {
 				buyAmount = Number(txValue);
 				let ETHAmountForGas = await calculateETH(transaction.gas, transaction.gasPrice)
 				const ETHOfProfitAmount = await calculateProfitAmount(decodedDataOfInput, buyAmount)
 				console.log('benefit-gas= : ', Number(ETHOfProfitAmount) - ETHAmountForGas)
-				if (Number(ETHOfProfitAmount) > ETHAmountForGas)
-					return buyAmount;
+				if (Number(ETHOfProfitAmount[0]) > ETHAmountForGas)
+					return [buyAmount, ETHOfProfitAmount[1]];
 				else {
 					console.log('************ No Benefit ************')
 				}
@@ -444,10 +444,10 @@ const checkInspectedData = async () => {
 				// const exist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
 				// if (exist) {
 				const isProfit = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
-				if (isProfit !== null) {
-					if (isProfit) {
+				if (isProfit[0] !== null) {
+					if (isProfit[0]) {
 						console.log('************ Will be run Sandwich ************')
-						await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit, scanedTransactions[i].ID);
+						await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit[0], isProfit[1], scanedTransactions[i].ID);
 						scanedTransactions[i].processed = true;
 					} else {
 						console.log('No profit')
@@ -520,14 +520,7 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 				}
 			);
 		}
-		const receipt = await tx.wait();
-		if (receipt && receipt.blockNumber && receipt.status === 1) {
-			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy success`);
-		} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Buy failed`);
-		} else {
-			console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
-		}
+		return tx;
 
 	} catch (error: any) {
 		console.log("buy token : ", error)
@@ -535,48 +528,63 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 }
 const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, ID: string) => {
 	try {
-		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
+		// const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
-		// const tokenBalance = await sellTokenContract.balanceOf(owner);
 		const amountIn = buyAmount;
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		let amountOutMin = 0;
 		amountOutMin = amounts[1];
 
-		const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
-		const receipt_approve = await approve.wait();
-		if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
-			console.log(`Approved https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
+		// const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
+		// const receipt_approve = await approve.wait();
+		// if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
+		// 	console.log(`Approved https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt_approve.transactionHash}`);
 
-			const tx = await signedUniswap2Router.swapExactTokensForTokens(
-				amountIn,
-				0,
-				calldataPath,
-				owner,
-				(Date.now() + 1000 * 60 * 10),
-			);
-			const receipt = await tx.wait();
-			if (receipt && receipt.blockNumber && receipt.status === 1) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell success`);
-			} else if (receipt && receipt.blockNumber && receipt.status === 0) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} Sell failed`);
-			} else {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${receipt.transactionHash} not mined`);
+		const tx = await signedUniswap2Router.swapExactTokensForTokens(
+			amountIn,
+			0,
+			calldataPath,
+			owner,
+			(Date.now() + 1000 * 60 * 10),
+			{
+				'gasLimit': gasLimit,
+				'gasPrice': gasPrice,
 			}
+		);
+		return tx;
 
-		}
+		// }
 	} catch (error: any) {
 		console.log("Sell token : ", error)
 	}
 }
-const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: any, ID: string) => {
+const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: any, sellAmount: any, ID: string) => {
 	try {
 		const buyGasPrice = calculateGasPrice("buy", transaction.gasPrice)
 		const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
-		await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, ID)
-
-		if (sellAmountOfBot) {
-			await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmountOfBot, ID)
+		const buyTx = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, ID)
+		if (sellAmount) {
+			const sellTx = await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount, ID)
+			// ********** buy process ********** //
+			const buyReceipt = await buyTx.wait();
+			if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 1) {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy success`);
+			} else if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 0) {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy failed`);
+			} else {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} not mined`);
+			}
+			// ********** buy process ********** //
+			// ********** sell process ********** //
+			const sellReceipt = await sellTx.wait();
+			if (sellReceipt && sellReceipt.blockNumber && sellReceipt.status === 1) {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} Sell success`);
+			} else if (sellReceipt && sellReceipt.blockNumber && sellReceipt.status === 0) {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} Sell failed`);
+			} else {
+				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} not mined`);
+			}
+			// ********** sell process ********** //
 			console.log('____ Sandwich Complete ____')
 		} else {
 			console.log('Can`t sell token')
