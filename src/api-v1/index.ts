@@ -240,7 +240,6 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 					console.log('************ No Benefit ************')
 				}
 			} else if (ID === "ETH") {
-				console.log("decodedDataOfInput : ", decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 				buyAmount = Number(txValue);
 				let ETHAmountForGas = calculateETH(transaction.gas, transaction.gasPrice)
 				const ETHOfProfitAmount: any = await calculateProfitAmount(decodedDataOfInput, buyAmount)
@@ -338,6 +337,7 @@ const InspectMempool = async () => {
 									} catch (error: any) {
 										try {
 											result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
+											ID = "TOKEN"
 											if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 												scanedTransactions.push({
 													hash: pendingTxs.pending[addr][k].hash,
@@ -347,11 +347,11 @@ const InspectMempool = async () => {
 													ID: ID
 												})
 											}
-											ID = "TOKEN"
 										} catch (error: any) {
 											try {
 												result = SwapList.decodeFunctionData('swapExactTokensForETH', pendingTxs.pending[addr][k].input)
 												console.log('result swapExactTokensForETH: ')
+												ID = "TOKEN"
 												if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 													scanedTransactions.push({
 														hash: pendingTxs.pending[addr][k].hash,
@@ -361,11 +361,11 @@ const InspectMempool = async () => {
 														ID: ID
 													})
 												}
-												ID = "TOKEN"
 											} catch (error: any) {
 												try {
 													result = SwapList.decodeFunctionData('swapETHForExactTokens', pendingTxs.pending[addr][k].input)
 													console.log('result swapETHForExactTokens: ')
+													ID = "ETH"
 													if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 														scanedTransactions.push({
 															hash: pendingTxs.pending[addr][k].hash,
@@ -375,7 +375,6 @@ const InspectMempool = async () => {
 															ID: ID
 														})
 													}
-													ID = "ETH"
 												} catch (error: any) {
 													try {
 														result = SwapList.decodeFunctionData('swapExactTokensForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
@@ -394,6 +393,7 @@ const InspectMempool = async () => {
 														try {
 															result = SwapList.decodeFunctionData('swapExactETHForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
 															console.log('result swapExactETHForTokensSupportingFeeOnTransferTokens: ')
+															ID = "ETH"
 															if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 																scanedTransactions.push({
 																	hash: pendingTxs.pending[addr][k].hash,
@@ -403,7 +403,6 @@ const InspectMempool = async () => {
 																	ID: ID
 																})
 															}
-															ID = "ETH"
 														} catch (error: any) {
 															try {
 																result = SwapList.decodeFunctionData('swapExactTokensForETHSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
