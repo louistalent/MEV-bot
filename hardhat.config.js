@@ -48,7 +48,7 @@ module.exports = {
 			accounts: [process.env.BOTADDRESS]
 		},
 		ethereum_: {
-			url: "https://main-light.eth.linkpool.io/",
+			url: "https://eth.llamarpc.com",
 			accounts: [process.env.BOTADDRESS]
 		},
 		bsc: {
