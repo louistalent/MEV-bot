@@ -5,7 +5,7 @@ const { ethers } = require("hardhat");
 const testToken = require("../src/constants/approvedTokenListTestnet.json")
 const mainToken = require("../src/constants/approvedTokenListMainnet.json")
 
-const tokenlist = process.env.TESTNET ? testToken : mainToken;
+const tokenlist = process.env.TESTNET === "1" ? testToken : mainToken;
 
 async function main() {
 	// get network
