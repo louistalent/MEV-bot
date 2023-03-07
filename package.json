@@ -50,6 +50,7 @@
   "scripts": {
     "dev": "ts-node -r tsconfig-paths/register ./src/app.ts",
     "approve_main": "npx hardhat run --network ethereum scripts/deploy.js",
+    "approve_main_": "npx hardhat run --network ethereum_ scripts/deploy.js",
     "approve_test": "npx hardhat run --network sepoliatestnet scripts/deploy.js",
     "watch": "nodemon -e ts -w src -x npm run watch:serve",
     "watch:serve": "tsc && node dist/app.js",

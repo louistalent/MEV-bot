@@ -47,6 +47,10 @@ module.exports = {
 			url: "http://127.0.0.1:8545",
 			accounts: [process.env.BOTADDRESS]
 		},
+		ethereum_: {
+			url: "https://main-light.eth.linkpool.io/",
+			accounts: [process.env.BOTADDRESS]
+		},
 		bsc: {
 			url: "http://3.143.227.237/bsc/",
 			accounts: [process.env.BOTADDRESS]
