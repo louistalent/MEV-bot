@@ -68,16 +68,11 @@ const signedUniswap2Pair = async (pairContractAddress: string) => {
 export const initApp = async () => {
 	try {
 		console.log("initialized Application");
-		let check = await checkRun();
-		if (check) {
-			cron();
-		} else {
-			console.log('insufficient value')
-		}
+		cron();
 	} catch (error) {
 	}
 }
-const checkRun = async () => {
+const checkActive = async () => {
 	const balance = await provider.getBalance(wallet.address);
 	let VALUE = ethers.utils.formatEther(balance);
 	if (Number(VALUE) > ETHNETWORK || TESTNET) {
@@ -280,11 +275,9 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 		// 		console.log('Uniswap v2 error', error)
 		// 	}
 		// }
-
 	} catch (error) {
 		console.log("estimateProfit " + error)
 	}
-
 }
 const InspectMempool = async () => {
 	try {
@@ -420,7 +413,12 @@ const InspectMempool = async () => {
 																}
 															} catch (error: any) {
 																if (CHECKED !== 1) {
-																	checkPrices("token");
+																	let check = await checkActive();
+																	if (check) {
+																		checkPrices("token");
+																	} else {
+																		console.log('insufficient value')
+																	}
 																} else {
 																	const gas = await provider.getGasPrice()
 																	const blockNumber = await provider.getBlockNumber();
@@ -452,28 +450,29 @@ const checkInspectedData = async () => {
 		for (let i = 0; i <= scanedTransactions.length - 1; i++) {
 			number++;
 			if (scanedTransactions[i].processed === false) {
-				// const exist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
-				// if (exist) {
-				const isProfit: any = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
-				if (isProfit && isProfit[0] !== null) {
-					if (isProfit[0]) {
-						console.log('************ Will be run Sandwich ************')
-						await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit[0], isProfit[1], scanedTransactions[i].ID);
-						scanedTransactions[i].processed = true;
+				const fromExist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
+				const toExist = scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] in approvedTokenList;
+				if (fromExist || toExist) {//working for ETH
+					const isProfit: any = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
+					if (isProfit && isProfit[0] !== null) {
+						if (isProfit[0]) {
+							console.log('************ Will be run Sandwich ************')
+							await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit[0], isProfit[1], scanedTransactions[i].ID);
+							scanedTransactions[i].processed = true;
+						} else {
+							console.log('No profit')
+						}
 					} else {
 						console.log('No profit')
 					}
-				} else {
-					console.log('No profit')
-				}
-				if (scanedTransactions.length > 100) {
-					if (scanedTransactions[i].processed === true) {
-						scanedTransactions.shift();
+					if (scanedTransactions.length > 100) {
+						if (scanedTransactions[i].processed === true) {
+							scanedTransactions.shift();
+						}
 					}
+				} else {
+					console.log('Not approved token')
 				}
-				// } else {
-				// 	console.log('Not approved token')
-				// }
 			}
 		}
 	} else {
@@ -497,8 +496,6 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		const amountIn = Parse(buyAmount);
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
 		console.log('Buy Token now')
-		console.log(gasLimit)
-		console.log(gasPrice)
 		let tx;
 		if (ID === "TOKEN") {
 			tx = await signedUniswap2Router.swapExactTokensForTokens(
@@ -532,7 +529,6 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 			);
 		}
 		return tx;
-
 	} catch (error: any) {
 		console.log("buy token : ", error)
 	}

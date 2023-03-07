@@ -4,6 +4,11 @@
         "symbol": "USDT",
         "decimal": 18
     },
+    "0x9865b1dE34261e45761866Dc00496DD6fC9924b1": {
+        "name": "Real Wrapped Ether",
+        "symbol": "WETH",
+        "decimal": 18
+    },
     "0x08a553d8d7c93DC5467273050487A4e7a86b5dfE": {
         "name": "USD Coin",
         "symbol": "USDC",

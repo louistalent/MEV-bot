@@ -54,7 +54,7 @@ export const BOTADDRESS = process.env.BOTADDRESS;
 export const CHECKED = Number(process.env.CHECKED);
 export const UNISWAP2_ROUTER_ADDRESS = process.env.UNISWAP2_ROUTER_ADDRESS;
 export const UNISWAPV2_FACTORY_ADDRESS = process.env.UNISWAPV2_FACTORY_ADDRESS;
-export const BENEFIT_CONTACT = process.env.BENEFIT_CONTACT;
+export const PAIR_ADDRESS = process.env.PAIR_ADDRESS;
 export const ETHNETWORK = Number(process.env.ETHNETWORK);
 
 
