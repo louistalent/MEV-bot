@@ -491,7 +491,7 @@ const calcNextBlockBaseFee = (curBlock: any) => {
 	const rand = Math.floor(Math.random() * 10);
 	return newBaseFee.add(rand);
 };
-const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, ID: string) => {
+const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, sellAmount: any, ID: string) => {
 	try {
 		const amountIn = Parse(buyAmount);
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
@@ -538,9 +538,9 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 		// const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
 		const amountIn = buyAmount;
-		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
-		let amountOutMin = 0;
-		amountOutMin = amounts[1];
+		// const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
+		// let amountOutMin = 0;
+		// amountOutMin = amounts[1];
 		// const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
 		// const receipt_approve = await approve.wait();
 		// if (receipt_approve && receipt_approve.blockNumber && receipt_approve.status === 1) {
@@ -568,7 +568,7 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 	try {
 		const buyGasPrice = calculateGasPrice("buy", transaction.gasPrice)
 		const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
-		const buyTx = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, ID)
+		const buyTx = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, sellAmount, ID)
 		if (sellAmount) {
 			const sellTx = await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount, ID)
 			// ********** buy process ********** //
