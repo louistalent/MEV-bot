@@ -165,7 +165,7 @@ library SafeMath {
     }
 }
 
-contract ERC20_WETH is Context {
+contract ERC20 is Context {
     event Transfer(address indexed from, address indexed to, uint256 value);
 
     event Approval(
