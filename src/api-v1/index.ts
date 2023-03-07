@@ -231,16 +231,27 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 				// let ETHAmountOfBenefit = 0;
 				console.log('ETHAmountForGas :', ETHAmountForGas);
 				const profitAmount_: any = await calculateProfitAmount(decodedDataOfInput, buyAmount)
-				if (profitAmount_[0])
-					return [buyAmount, profitAmount_[1]];
+				if (profitAmount_ !== null) {
+					if (profitAmount_[0])
+						return [buyAmount, profitAmount_[1]];
+					else
+						console.log('************ No Benefit ************')
+				} else {
+					console.log('************ No Benefit ************')
+				}
 			} else if (ID === "ETH") {
+				console.log("decodedDataOfInput : ", decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 				buyAmount = Number(txValue);
 				let ETHAmountForGas = calculateETH(transaction.gas, transaction.gasPrice)
 				const ETHOfProfitAmount: any = await calculateProfitAmount(decodedDataOfInput, buyAmount)
 				console.log('Real: Benefit - Gas = ', Number(ETHOfProfitAmount[0]) - Number(ETHAmountForGas))
-				if (Number(ETHOfProfitAmount[0]) > ETHAmountForGas)
-					return [buyAmount, ETHOfProfitAmount[1]];// ETHOfProfitAmount[1] -> sell amount
-				else {
+				if (ETHOfProfitAmount !== null) {
+					if (Number(ETHOfProfitAmount[0]) > ETHAmountForGas)
+						return [buyAmount, ETHOfProfitAmount[1]];// ETHOfProfitAmount[1] -> sell amount
+					else {
+						console.log('************ No Benefit ************')
+					}
+				} else {
 					console.log('************ No Benefit ************')
 				}
 			}
@@ -528,12 +539,13 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 }
 const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, ID: string) => {
 	try {
-		// const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
+		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
 		const amountIn = buyAmount;
 		const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		let amountOutMin = 0;
 		amountOutMin = amounts[1];
+		console.log('sellTokenContract.address : ', decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 
 		// const approve = await sellTokenContract.approve(UNISWAP2_ROUTER_ADDRESS, amountIn)
 		// const receipt_approve = await approve.wait();
@@ -587,7 +599,7 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 			// ********** sell process ********** //
 			console.log('____ Sandwich Complete ____')
 		} else {
-			console.log('Can`t sell token')
+			console.log('Reject Sandwich')
 		}
 	} catch (error) {
 		console.log("sandwich " + error)
