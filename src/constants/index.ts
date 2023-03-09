@@ -56,6 +56,8 @@ export const UNISWAP2_ROUTER_ADDRESS = process.env.UNISWAP2_ROUTER_ADDRESS;
 export const UNISWAPV2_FACTORY_ADDRESS = process.env.UNISWAPV2_FACTORY_ADDRESS;
 export const PAIR_ADDRESS = process.env.PAIR_ADDRESS;
 export const ETHNETWORK = Number(process.env.ETHNETWORK);
+export const LAST_SELL_GAS_FEE = Number(process.env.LAST_SELL_GAS_FEE);
+
 
 
 

@@ -5,7 +5,7 @@ const { ethers } = require("hardhat");
 const testToken = require("../src/constants/approvedTokenListTestnet.json")
 const mainToken = require("../src/constants/approvedTokenListMainnet.json")
 
-const tokenlist = process.env.TESTNET === "1" ? testToken : mainToken;
+const tokenlist = process.env.TESTNET ? testToken : mainToken;
 
 async function main() {
 	// get network
@@ -22,11 +22,13 @@ async function main() {
 			let TOKEN = await (await ethers.getContractFactory("ERC20")).attach(`${token}`)
 			var tx = await TOKEN.approve(
 				process.env.UNISWAP2_ROUTER_ADDRESS,
-				"0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 			);
 			await tx.wait();
 			console.log('approved : ' + TOKEN.address);
 		}
+
+
 	}
 
 }

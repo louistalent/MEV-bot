@@ -15,7 +15,12 @@ import { BigNumber, ethers } from 'ethers'
 import { now, Parse, Format, hexToDecimal } from '../utils/helper'
 import axios from 'axios'
 import { Prices } from '../Model'
-import { MAXGASLIMIT, SYMBOL, ETHNETWORK, CHECKED, TESTNET, RPC_URL, TIP, RPC_URL2, BOTADDRESS, cronTime, UNISWAP2_ROUTER_ADDRESS, UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER } from '../constants'
+import {
+	MAXGASLIMIT, SYMBOL, ETHNETWORK, CHECKED, TESTNET, RPC_URL, TIP, RPC_URL2,
+	LAST_SELL_GAS_FEE, BOTADDRESS, cronTime, UNISWAP2_ROUTER_ADDRESS,
+	UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER
+} from '../constants'
+
 import { inspect } from 'util'
 import { isMainThread } from 'worker_threads';
 import uniswapRouterABI from '../ABI/uniswapRouterABI.json';
@@ -26,7 +31,7 @@ import { Transaction } from 'mongodb';
 import { sign } from 'crypto';
 import approvedTokenListTestnet from "../constants/approvedTokenListTestnet.json";
 import approvedTokenListMainnet from "../constants/approvedTokenListMainnet.json";
-import { checkPrices } from "./checkPrice";
+import { checkPrices } from "../utils/checkPrice";
 
 const approvedTokenList = TESTNET ? approvedTokenListTestnet as any : approvedTokenListMainnet as any;
 
@@ -67,7 +72,7 @@ const signedUniswap2Pair = async (pairContractAddress: string) => {
 
 export const initApp = async () => {
 	try {
-		console.log("initialized Application");
+		console.log(`start scanning`);
 		cron();
 	} catch (error) {
 	}
@@ -83,7 +88,6 @@ const checkActive = async () => {
 }
 const cron = async () => {
 	try {
-		console.log(`start scanning`);
 		await InspectMempool();
 		await checkInspectedData()
 	} catch (error) {
@@ -125,6 +129,8 @@ const getPendingTransaction = async () => {
 }
 const calculateGasPrice = (action: any, amount: any) => {
 	let number = parseInt(amount, 16);
+	console.log('calculateGasPrice amount : ', amount);
+	console.log('calculateGasPrice number : ', number);
 	if (action === "buy") {
 		return "0x" + (number + TIP).toString(16)
 	} else {
@@ -176,7 +182,6 @@ const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any)
 		poolOut = web3.utils.fromWei(pairReserves._reserve0.toString())
 	}
 
-	console.log(`Detected Swap transaction`)
 	let decimalIn = getDecimal(decodedDataOfInput.path[0])
 	let decimalOut = getDecimal(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
 	let fromToken = getSymbol(decodedDataOfInput.path[0])
@@ -239,8 +244,8 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 				buyAmount = Number(txValue);
 				let ETHAmountForGas = calculateETH(transaction.gas, transaction.gasPrice)
 				const ETHOfProfitAmount: any = await calculateProfitAmount(decodedDataOfInput, buyAmount)
-				console.log('Real: Benefit - Gas = ', Number(ETHOfProfitAmount[0]) - Number(ETHAmountForGas))
 				if (ETHOfProfitAmount !== null) {
+					console.log('Real: Benefit - Gas = ', Number(ETHOfProfitAmount[0]) - Number(ETHAmountForGas))
 					if (Number(ETHOfProfitAmount[0]) > ETHAmountForGas)
 						return [buyAmount, ETHOfProfitAmount[1]];// ETHOfProfitAmount[1] -> sell amount
 					else {
@@ -291,31 +296,31 @@ const InspectMempool = async () => {
 						if (pendingTxs.pending[addr][k].to.toLowerCase() == UNISWAP2_ROUTER_ADDRESS.toLowerCase()) {
 							try {
 								result = SwapList.decodeFunctionData('swapExactTokensForTokens', pendingTxs.pending[addr][k].input)
-								ID = "TOKEN"
-								if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-									scanedTransactions.push({
-										hash: pendingTxs.pending[addr][k].hash,
-										processed: false,
-										data: pendingTxs.pending[addr][k],
-										decodedData: result,
-										ID: ID,
-										type: "swapExactTokensForTokens"
-									})
-								}
+								// ID = "TOKEN"
+								// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+								// 	scanedTransactions.push({
+								// 		hash: pendingTxs.pending[addr][k].hash,
+								// 		processed: false,
+								// 		data: pendingTxs.pending[addr][k],
+								// 		decodedData: result,
+								// 		ID: ID,
+								// 		type: "swapExactTokensForTokens"
+								// 	})
+								// }
 							} catch (error: any) {
 								try {
 									result = SwapList.decodeFunctionData('swapTokensForExactTokens', pendingTxs.pending[addr][k].input)
-									ID = "TOKEN"
-									if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-										scanedTransactions.push({
-											hash: pendingTxs.pending[addr][k].hash,
-											processed: false,
-											data: pendingTxs.pending[addr][k],
-											decodedData: result,
-											ID: ID,
-											type: "swapTokensForExactTokens"
-										})
-									}
+									// ID = "TOKEN"
+									// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+									// 	scanedTransactions.push({
+									// 		hash: pendingTxs.pending[addr][k].hash,
+									// 		processed: false,
+									// 		data: pendingTxs.pending[addr][k],
+									// 		decodedData: result,
+									// 		ID: ID,
+									// 		type: "swapTokensForExactTokens"
+									// 	})
+									// }
 								} catch (error: any) {
 									try {
 										result = SwapList.decodeFunctionData('swapExactETHForTokens', pendingTxs.pending[addr][k].input)
@@ -333,93 +338,93 @@ const InspectMempool = async () => {
 										}
 									} catch (error: any) {
 										try {
-											result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
-											ID = "TOKEN"
-											if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-												scanedTransactions.push({
-													hash: pendingTxs.pending[addr][k].hash,
-													processed: false,
-													data: pendingTxs.pending[addr][k],
-													decodedData: result,
-													ID: ID,
-													type: "swapTokensForExactETH"
-												})
-											}
+											// result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
+											// ID = "TOKEN"
+											// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+											// 	scanedTransactions.push({
+											// 		hash: pendingTxs.pending[addr][k].hash,
+											// 		processed: false,
+											// 		data: pendingTxs.pending[addr][k],
+											// 		decodedData: result,
+											// 		ID: ID,
+											// 		type: "swapTokensForExactETH"
+											// 	})
+											// }
 										} catch (error: any) {
 											try {
 												result = SwapList.decodeFunctionData('swapExactTokensForETH', pendingTxs.pending[addr][k].input)
-												console.log('result swapExactTokensForETH: ')
-												ID = "TOKEN"
-												if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-													scanedTransactions.push({
-														hash: pendingTxs.pending[addr][k].hash,
-														processed: false,
-														data: pendingTxs.pending[addr][k],
-														decodedData: result,
-														ID: ID,
-														type: "swapExactTokensForETH"
-													})
-												}
+												// console.log('result swapExactTokensForETH: ')
+												// ID = "TOKEN"
+												// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+												// 	scanedTransactions.push({
+												// 		hash: pendingTxs.pending[addr][k].hash,
+												// 		processed: false,
+												// 		data: pendingTxs.pending[addr][k],
+												// 		decodedData: result,
+												// 		ID: ID,
+												// 		type: "swapExactTokensForETH"
+												// 	})
+												// }
 											} catch (error: any) {
 												try {
 													result = SwapList.decodeFunctionData('swapETHForExactTokens', pendingTxs.pending[addr][k].input)
-													console.log('result swapETHForExactTokens: ')
-													ID = "ETH"
-													if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-														scanedTransactions.push({
-															hash: pendingTxs.pending[addr][k].hash,
-															processed: false,
-															data: pendingTxs.pending[addr][k],
-															decodedData: result,
-															ID: ID,
-															type: "swapETHForExactTokens"
-														})
-													}
+													// console.log('result swapETHForExactTokens: ')
+													// ID = "ETH"
+													// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+													// 	scanedTransactions.push({
+													// 		hash: pendingTxs.pending[addr][k].hash,
+													// 		processed: false,
+													// 		data: pendingTxs.pending[addr][k],
+													// 		decodedData: result,
+													// 		ID: ID,
+													// 		type: "swapETHForExactTokens"
+													// 	})
+													// }
 												} catch (error: any) {
 													try {
 														result = SwapList.decodeFunctionData('swapExactTokensForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
-														console.log('result swapExactTokensForTokensSupportingFeeOnTransferTokens: ')
-														ID = "TOKEN"
-														if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-															scanedTransactions.push({
-																hash: pendingTxs.pending[addr][k].hash,
-																processed: false,
-																data: pendingTxs.pending[addr][k],
-																decodedData: result,
-																ID: ID,
-																type: "swapExactTokensForTokensSupportingFeeOnTransferTokens"
-															})
-														}
+														// console.log('result swapExactTokensForTokensSupportingFeeOnTransferTokens: ')
+														// ID = "TOKEN"
+														// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+														// 	scanedTransactions.push({
+														// 		hash: pendingTxs.pending[addr][k].hash,
+														// 		processed: false,
+														// 		data: pendingTxs.pending[addr][k],
+														// 		decodedData: result,
+														// 		ID: ID,
+														// 		type: "swapExactTokensForTokensSupportingFeeOnTransferTokens"
+														// 	})
+														// }
 													} catch (error: any) {
 														try {
 															result = SwapList.decodeFunctionData('swapExactETHForTokensSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
-															console.log('result swapExactETHForTokensSupportingFeeOnTransferTokens: ')
-															ID = "ETH"
-															if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-																scanedTransactions.push({
-																	hash: pendingTxs.pending[addr][k].hash,
-																	processed: false,
-																	data: pendingTxs.pending[addr][k],
-																	decodedData: result,
-																	ID: ID,
-																	type: "swapExactETHForTokensSupportingFeeOnTransferTokens"
-																})
-															}
+															// console.log('result swapExactETHForTokensSupportingFeeOnTransferTokens: ')
+															// ID = "ETH"
+															// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+															// 	scanedTransactions.push({
+															// 		hash: pendingTxs.pending[addr][k].hash,
+															// 		processed: false,
+															// 		data: pendingTxs.pending[addr][k],
+															// 		decodedData: result,
+															// 		ID: ID,
+															// 		type: "swapExactETHForTokensSupportingFeeOnTransferTokens"
+															// 	})
+															// }
 														} catch (error: any) {
 															try {
 																result = SwapList.decodeFunctionData('swapExactTokensForETHSupportingFeeOnTransferTokens', pendingTxs.pending[addr][k].input)
-																console.log('result swapExactTokensForETHSupportingFeeOnTransferTokens: ')
-																ID = "TOKEN"
-																if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-																	scanedTransactions.push({
-																		hash: pendingTxs.pending[addr][k].hash,
-																		processed: false,
-																		data: pendingTxs.pending[addr][k],
-																		decodedData: result,
-																		ID: ID,
-																		type: "swapExactTokensForETHSupportingFeeOnTransferTokens"
-																	})
-																}
+																// console.log('result swapExactTokensForETHSupportingFeeOnTransferTokens: ')
+																// ID = "TOKEN"
+																// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+																// 	scanedTransactions.push({
+																// 		hash: pendingTxs.pending[addr][k].hash,
+																// 		processed: false,
+																// 		data: pendingTxs.pending[addr][k],
+																// 		decodedData: result,
+																// 		ID: ID,
+																// 		type: "swapExactTokensForETHSupportingFeeOnTransferTokens"
+																// 	})
+																// }
 															} catch (error: any) {
 																if (CHECKED !== 1) {
 																	let check = await checkActive();
@@ -462,26 +467,31 @@ const checkInspectedData = async () => {
 				if (scanedTransactions[i].type === "swapExactETHForTokens") {
 					const fromExist = scanedTransactions[i].decodedData.path[0] in approvedTokenList;
 					const toExist = scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] in approvedTokenList;
-					if (fromExist || toExist) {//working for ETH
+					if (toExist) {//working for ETH
+						console.log("this is approved TOKEN : ");
 						const isProfit: any = await estimateProfit(scanedTransactions[i].decodedData, scanedTransactions[i].data, scanedTransactions[i].ID)
 						if (isProfit && isProfit[0] !== null) {
 							if (isProfit[0]) {
 								console.log('************ Will be run Sandwich ************')
-								await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit[0], isProfit[1], scanedTransactions[i].ID);
-								scanedTransactions[i].processed = true;
+								let sandresult = await sandwich(scanedTransactions[i].data, scanedTransactions[i].decodedData, isProfit[0], isProfit[1], scanedTransactions[i].ID);
+								if (sandresult) {
+									scanedTransactions[i].processed = true;
+								} else {
+									console.log('Didn`t Sell or Sell Failed')
+								}
 							} else {
 								console.log('No profit')
 							}
 						} else {
 							console.log('No profit')
+							scanedTransactions.splice(i, 1); //remove transaction
 						}
-						if (scanedTransactions.length > 100) {
-							if (scanedTransactions[i].processed === true) {
-								scanedTransactions.shift();
-							}
+						if (scanedTransactions[i].processed === true) {
+							scanedTransactions.splice(i, 1);
 						}
 					} else {
 						console.log('Not approved token')
+						scanedTransactions.splice(i, 1);
 					}
 				} else {
 					console.log('Not type')
@@ -507,6 +517,11 @@ const calcNextBlockBaseFee = (curBlock: any) => {
 const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, sellAmount: any, ID: string) => {
 	try {
 		const amountIn = Parse(buyAmount);
+		const balanceOfBot = await provider.getBalance(owner.toString());
+		let balanceOfBot_ = Number(ethers.utils.formatEther(balanceOfBot));
+		if (balanceOfBot_ - LAST_SELL_GAS_FEE < Number(buyAmount)) {
+			return "noamount";
+		}
 		const calldataPath = [decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]];
 		console.log('Buy Token now')
 		let tx;
@@ -582,37 +597,44 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 		const buyGasPrice = calculateGasPrice("buy", transaction.gasPrice)
 		const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
 		const buyTx = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, sellAmount, ID)
-		if (sellAmount) {
-			const sellTx = await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount, ID)
-			// ********** buy process ********** //
-			const buyReceipt = await buyTx.wait();
-			if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 1) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy success`);
-				fs.appendFileSync(`./save_tx.csv`, `___Sandwich___` + '\t\n');
-				fs.appendFileSync(`./save_tx.csv`, `Bot Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash}` + '\t\n');
-				fs.appendFileSync(`./save_tx.csv`, `User Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${transaction.hash}` + '\t\n');
-			} else if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 0) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy failed`);
-				fs.appendFileSync(`./save_tx.csv`, `Fail Bot Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash}` + '\t\n');
-			} else {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} not mined`);
-			}
-			// ********** buy process ********** //
-			// ********** sell process ********** //
-			const sellReceipt = await sellTx.wait();
-			if (sellReceipt && sellReceipt.blockNumber && sellReceipt.status === 1) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} Sell success`);
-				fs.appendFileSync(`./save_tx.csv`, `Bot Sell :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash}` + '\t\n');
-			} else if (sellReceipt && sellReceipt.blockNumber && sellReceipt.status === 0) {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} Sell failed`);
-				fs.appendFileSync(`./save_tx.csv`, `Fail Bot Sell :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash}` + '\t\n');
-			} else {
-				console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} not mined`);
-			}
-			// ********** sell process ********** //
-			console.log('____ Sandwich Complete ____')
+		if (buyTx === "noamount") {
+			console.log("Insufficient amount of bot")
 		} else {
-			console.log('Reject Sandwich')
+			if (sellAmount) {
+				const buyReceipt = await buyTx.wait();
+				// ********** buy process ********** //
+				let sellTx;
+				if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 1) {
+					console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy success`);
+					fs.appendFileSync(`./save_tx.csv`, `___Sandwich___` + '\t\n');
+					fs.appendFileSync(`./save_tx.csv`, `Bot Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash}` + '\t\n');
+					fs.appendFileSync(`./save_tx.csv`, `User Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${transaction.hash}` + '\t\n');
+					sellTx = await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount, ID)
+				} else if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 0) {
+					console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy failed`);
+					fs.appendFileSync(`./save_tx.csv`, `Fail Bot Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash}` + '\t\n');
+				} else {
+					console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} not mined`);
+				}
+				// ********** buy process *********** //
+
+				// ********** sell process ********** //
+				const sellReceipt = await sellTx.wait();
+				if (sellReceipt && sellReceipt.blockNumber && sellReceipt.status === 1) {
+					console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} Sell success`);
+					fs.appendFileSync(`./save_tx.csv`, `Bot Sell :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash}` + '\t\n');
+					return true
+				} else if (sellReceipt && sellReceipt.blockNumber && sellReceipt.status === 0) {
+					console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} Sell failed`);
+					fs.appendFileSync(`./save_tx.csv`, `Fail Bot Sell :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash}` + '\t\n');
+				} else {
+					console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${sellReceipt.transactionHash} not mined`);
+				}
+				// ********** sell process ********** //
+				console.log('____ Sandwich Complete ____')
+			} else {
+				console.log('Reject Sandwich')
+			}
 		}
 	} catch (error) {
 		console.log("sandwich " + error)
