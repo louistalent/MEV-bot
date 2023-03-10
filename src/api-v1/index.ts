@@ -18,7 +18,7 @@ import { Prices } from '../Model'
 import {
 	MAXGASLIMIT, SYMBOL, ETHNETWORK, CHECKED, TESTNET, RPC_URL, TIP, RPC_URL2,
 	LAST_SELL_GAS_FEE, BOTADDRESS, cronTime, UNISWAP2_ROUTER_ADDRESS,
-	UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER
+	UNISWAPV2_FACTORY_ADDRESS, EXTRA_TIP_FOR_MINER, BLOCKTIME_FOR_GAS_WAR
 } from '../constants'
 
 import { inspect } from 'util'
@@ -74,7 +74,6 @@ const signedUniswap2Pair = async (pairContractAddress: string) => {
 export const initApp = async () => {
 	try {
 		console.log(`start scanning`);
-		// await latestBlockInfo()
 		cron();
 	} catch (error) {
 	}
@@ -94,13 +93,13 @@ const checkActive = async () => {
 }
 const cron = async () => {
 	try {
-		// await InspectMempool();
-		// await checkInspectedData()
-		let res = await latestBlockInfo();
-		let r = Date.now() / 1000 - parseInt(res.timestamp)
-		let r_ = parseInt(res.timestamp) - Date.now() / 1000
-		console.log('r :', r);
-		console.log('r_ :', r_);
+		await InspectMempool();
+		await checkInspectedData()
+		// let res = await latestBlockInfo();
+		// let r = Date.now() / 1000 - parseInt(res.timestamp)
+		// console.log('r :', r);
+		// let r_ = parseInt(res.timestamp) - Date.now() / 1000
+		// console.log('r_ :', r_);
 
 	} catch (error) {
 		console.log('cron', error);
@@ -184,43 +183,47 @@ const botAmountForPurchase = async (transaction: any, decodedDataOfInput: any, m
 
 }
 const calculateProfitAmount = async (decodedDataOfInput: any, profitAmount: any) => {
-	const signedUniswap2Pair_ = await signedUniswap2Pair(approvedTokenList[decodedDataOfInput.path[decodedDataOfInput.path.length - 1]].pair)
-	const poolToken0 = await signedUniswap2Pair_.token0();
-	const pairReserves = await signedUniswap2Pair_.getReserves();
+	try {
+		const signedUniswap2Pair_ = await signedUniswap2Pair(approvedTokenList[decodedDataOfInput.path[decodedDataOfInput.path.length - 1]].pair)
+		const poolToken0 = await signedUniswap2Pair_.token0();
+		const pairReserves = await signedUniswap2Pair_.getReserves();
 
-	let poolIn = "";
-	let poolOut = "";
-	if (decodedDataOfInput.path[0].toLowerCase() == poolToken0.toLowerCase()) {
-		poolIn = web3.utils.fromWei(pairReserves._reserve0.toString())
-		poolOut = web3.utils.fromWei(pairReserves._reserve1.toString())
-	} else {
-		poolIn = web3.utils.fromWei(pairReserves._reserve1.toString())
-		poolOut = web3.utils.fromWei(pairReserves._reserve0.toString())
+		let poolIn = "";
+		let poolOut = "";
+		if (decodedDataOfInput.path[0].toLowerCase() == poolToken0.toLowerCase()) {
+			poolIn = web3.utils.fromWei(pairReserves._reserve0.toString())
+			poolOut = web3.utils.fromWei(pairReserves._reserve1.toString())
+		} else {
+			poolIn = web3.utils.fromWei(pairReserves._reserve1.toString())
+			poolOut = web3.utils.fromWei(pairReserves._reserve0.toString())
+		}
+
+		let decimalIn = getDecimal(decodedDataOfInput.path[0])
+		let decimalOut = getDecimal(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
+		let fromToken = getSymbol(decodedDataOfInput.path[0])
+		let toToken = getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
+
+		let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
+		console.log(`Buy : from (${profitAmount} ${fromToken}) to (${Format(frontbuy)} ${toToken})`)
+		let changedPoolIn = Number(poolIn) + Number(profitAmount);
+		let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
+
+		let UserTx = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(changedPoolIn, decimalIn), Parse(changedPoolOut, decimalOut));
+		changedPoolIn = changedPoolIn + profitAmount;
+		changedPoolOut = changedPoolOut - Number(Format(UserTx));
+
+		console.log(`User : from (${profitAmount} ${fromToken}) to (${Format(UserTx)} ${toToken})`)
+		let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
+		console.log(`Sell : from (${Format(frontbuy)} ${toToken}) to (${Format(backsell)} ${fromToken})`)
+		let Revenue = Number(Format(backsell)) - Number(profitAmount);
+		console.log(`Expected Profit :Profit(${Format(backsell)} ${fromToken})-Buy(${profitAmount} ${fromToken})= ${Revenue} ${fromToken}`)
+		if (Number(Format(backsell)) < Number(profitAmount)) {
+			return null;
+		}
+		return [Revenue, frontbuy];
+	} catch (error: any) {
+		console.log('calculateProfitAmount', error);
 	}
-
-	let decimalIn = getDecimal(decodedDataOfInput.path[0])
-	let decimalOut = getDecimal(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
-	let fromToken = getSymbol(decodedDataOfInput.path[0])
-	let toToken = getSymbol(decodedDataOfInput.path[decodedDataOfInput.path.length - 1])
-
-	let frontbuy = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(poolIn, decimalIn), Parse(poolOut, decimalOut))
-	console.log(`Buy : from (${profitAmount} ${fromToken}) to (${Format(frontbuy)} ${toToken})`)
-	let changedPoolIn = Number(poolIn) + Number(profitAmount);
-	let changedPoolOut = Number(poolOut) - Number(Format(frontbuy));
-
-	let UserTx = await signedUniswap2Router.getAmountOut(Parse(profitAmount), Parse(changedPoolIn, decimalIn), Parse(changedPoolOut, decimalOut));
-	changedPoolIn = changedPoolIn + profitAmount;
-	changedPoolOut = changedPoolOut - Number(Format(UserTx));
-
-	console.log(`User : from (${profitAmount} ${fromToken}) to (${Format(UserTx)} ${toToken})`)
-	let backsell = await signedUniswap2Router.getAmountOut(frontbuy, Parse(changedPoolOut), Parse(changedPoolIn))
-	console.log(`Sell : from (${Format(frontbuy)} ${toToken}) to (${Format(backsell)} ${fromToken})`)
-	let Revenue = Number(Format(backsell)) - Number(profitAmount);
-	console.log(`Expected Profit :Profit(${Format(backsell)} ${fromToken})-Buy(${profitAmount} ${fromToken})= ${Revenue} ${fromToken}`)
-	if (Number(Format(backsell)) < Number(profitAmount)) {
-		return null;
-	}
-	return [Revenue, frontbuy];
 }
 const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: string) => {
 	try {
@@ -236,7 +239,6 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 			amountOut = web3.utils.fromWei(decodedDataOfInput.amountOut.toString())
 			isMinAmount = false;
 		}
-
 		if (Number(amountOutMin) === 0 || Number(amountOut) === 0) {
 			if (ID === "TOKEN") {
 				// amountIn  -> amountOutMin
@@ -257,6 +259,7 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 					console.log('************ No Benefit ************')
 				}
 			} else if (ID === "ETH") {
+
 				buyAmount = Number(txValue);
 				let ETHAmountForGas = calculateETH(transaction.gas, transaction.gasPrice)
 				const ETHOfProfitAmount: any = await calculateProfitAmount(decodedDataOfInput, buyAmount)
@@ -476,8 +479,6 @@ const InspectMempool = async () => {
 }
 const checkInspectedData = async () => {
 	if (scanedTransactions.length > 0) {
-		console.log('scanedTransactions : ', scanedTransactions);
-
 		for (let i = 0; i <= scanedTransactions.length - 1; i++) {
 			console.log(i)
 			if (scanedTransactions[i].processed === false) {
@@ -604,11 +605,10 @@ const gasWar = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buy
 	return tx
 
 }
-const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, ID: string) => {
+const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, amountIn: any, ID: string) => {
 	try {
-		const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
+		// const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
-		const amountIn = buyAmount;
 		// const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		// let amountOutMin = 0;
 		// amountOutMin = amounts[1];
@@ -624,8 +624,6 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 			}
 		);
 		return tx;
-
-		// }
 	} catch (error: any) {
 		console.log("Sell token : ", error)
 	}
@@ -640,25 +638,29 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 				console.log("Insufficient amount of bot")
 				return false
 			} else {
+				const sellTx = await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount, ID)
 				// ************ gas war ************
 				// infinite loop while 12.14 seconds
 				for (; ;) {
 					let res = await latestBlockInfo();
-					Math.trunc(Date.now() / 1000) - parseInt(res.timestamp)
-				}
-				for (let i = 0; i <= scanedTransactions.length - 1; i++) {
-					if (scanedTransactions[i].hash != transaction.hash
-						&&
-						scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] === decodedDataOfInput.path[decodedDataOfInput.path.length - 1]
-					) {
-						if (buyGasPrice < scanedTransactions[i].gas) {
-							buyTx = await gasWar(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, buyTx[1])
+					let remainTime = (Math.trunc(Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
+					if (Number(remainTime) > BLOCKTIME_FOR_GAS_WAR) {
+						for (let i = 0; i <= scanedTransactions.length - 1; i++) {
+							if (scanedTransactions[i].hash != transaction.hash
+								&&
+								scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] === decodedDataOfInput.path[decodedDataOfInput.path.length - 1]
+							) {
+								if (buyGasPrice < scanedTransactions[i].gas) {
+									console.log('gas war')
+									buyTx = await gasWar(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, buyTx[1])
+								}
+							}
 						}
+					} else {
+						break;
 					}
 				}
 				// ************ gas war ************ 
-
-				const sellTx = await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount, ID)
 				const buyReceipt = await buyTx[0].wait();
 				// ********** buy process ********** //
 				if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 1) {
