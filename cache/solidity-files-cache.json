@@ -196,8 +196,8 @@
       ]
     },
     "D:\\louis\\task-2023\\2023-2-1-MEV-bot\\project\\contracts\\ERC20_WETH.sol": {
-      "lastModificationDate": 1676245349811,
-      "contentHash": "8e961d1cd9d68ecb9d84ef7d927de3b2",
+      "lastModificationDate": 1678192778551,
+      "contentHash": "baf103dedf301c09a374705211e9931a",
       "sourceName": "contracts/ERC20_WETH.sol",
       "solcConfig": {
         "version": "0.6.12",
@@ -235,7 +235,7 @@
       ],
       "artifacts": [
         "Context",
-        "ERC20_WETH",
+        "ERC20",
         "SafeMath"
       ]
     },
