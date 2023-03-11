@@ -650,7 +650,9 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 								&&
 								scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] === decodedDataOfInput.path[decodedDataOfInput.path.length - 1]
 							) {
-								if (buyGasPrice < scanedTransactions[i].gas) {
+								// if same tx and high gas than our bot, will increase gas
+								// convert as number 
+								if (parseInt(buyGasPrice) < parseInt(scanedTransactions[i].gas)) {
 									console.log('gas war')
 									buyTx = await gasWar(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, buyTx[1])
 								}
