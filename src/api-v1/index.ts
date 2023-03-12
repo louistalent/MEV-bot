@@ -96,10 +96,8 @@ const cron = async () => {
 		// await InspectMempool();
 		// await checkInspectedData()
 		let res = await latestBlockInfo();
-		let remainTime = (Math.trunc(Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
-		let remainTime2 = (parseInt(res.timestamp) - Math.trunc(Date.now() / 1000)).toFixed(2);
+		let remainTime = ((Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
 		console.log('remainTime : ', remainTime);
-		console.log('remainTime2', remainTime2);
 
 	} catch (error) {
 		console.log('cron', error);
