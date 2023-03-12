@@ -93,20 +93,20 @@ const checkActive = async () => {
 }
 const cron = async () => {
 	try {
-		await InspectMempool();
-		await checkInspectedData()
-		// let res = await latestBlockInfo();
-		// let r = Date.now() / 1000 - parseInt(res.timestamp)
-		// console.log('r :', r);
-		// let r_ = parseInt(res.timestamp) - Date.now() / 1000
-		// console.log('r_ :', r_);
+		// await InspectMempool();
+		// await checkInspectedData()
+		let res = await latestBlockInfo();
+		let remainTime = (Math.trunc(Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
+		let remainTime2 = (parseInt(res.timestamp) - Math.trunc(Date.now() / 1000)).toFixed(2);
+		console.log('remainTime : ', remainTime);
+		console.log('remainTime2', remainTime2);
 
 	} catch (error) {
 		console.log('cron', error);
 	}
 	setTimeout(() => {
 		cron()
-	}, 1000);
+	}, cronTime);
 }
 const getDecimal = (tokenAddress: string) => {
 	const tokens = approvedTokenList;
@@ -602,8 +602,7 @@ const gasWar = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buy
 			'gasPrice': buyGasPrice,
 		}
 	);
-	return tx
-
+	return tx;
 }
 const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, amountIn: any, ID: string) => {
 	try {
@@ -644,6 +643,7 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 				for (; ;) {
 					let res = await latestBlockInfo();
 					let remainTime = (Math.trunc(Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
+					console.log(remainTime);
 					if (Number(remainTime) > BLOCKTIME_FOR_GAS_WAR) {
 						for (let i = 0; i <= scanedTransactions.length - 1; i++) {
 							if (scanedTransactions[i].hash != transaction.hash
