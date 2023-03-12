@@ -93,11 +93,11 @@ const checkActive = async () => {
 }
 const cron = async () => {
 	try {
-		// await InspectMempool();
-		// await checkInspectedData()
-		let res = await latestBlockInfo();
-		let remainTime = ((Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
-		console.log('remainTime : ', remainTime);
+		await InspectMempool();
+		await checkInspectedData()
+		// let res = await latestBlockInfo();
+		// let remainTime = ((Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
+		// console.log('remainTime : ', remainTime);
 
 	} catch (error) {
 		console.log('cron', error);
@@ -609,7 +609,7 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 		// const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
 		// let amountOutMin = 0;
 		// amountOutMin = amounts[1];
-		const tx = await signedUniswap2Router.swapExactTokensForTokens(
+		const tx = await signedUniswap2Router.swapExactTokensForETH(
 			amountIn,
 			0,
 			calldataPath,
@@ -633,23 +633,23 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 			let buyTx = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, sellAmount, ID)
 			if (buyTx === "noamount") {
 				console.log("Insufficient amount of bot")
-				return false
+				return false;
 			} else {
 				const sellTx = await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount, ID)
-				// ************ gas war ************
+				// ************ gas war Start ************
 				// infinite loop while 12.14 seconds
+				let res, remainTime;
 				for (; ;) {
-					let res = await latestBlockInfo();
-					let remainTime = (Math.trunc(Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
-					console.log(remainTime);
+					res = await latestBlockInfo();
+					remainTime = ((Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
 					if (Number(remainTime) > BLOCKTIME_FOR_GAS_WAR) {
 						for (let i = 0; i <= scanedTransactions.length - 1; i++) {
+							console.log('parseInt(buyGasPrice) : ', parseInt(buyGasPrice))
+							console.log('parseInt(scanedTransactions[i].gas) : ', parseInt(scanedTransactions[i].gas))
 							if (scanedTransactions[i].hash != transaction.hash
 								&&
 								scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] === decodedDataOfInput.path[decodedDataOfInput.path.length - 1]
 							) {
-								// if same tx and high gas than our bot, will increase gas
-								// convert as number 
 								if (parseInt(buyGasPrice) < parseInt(scanedTransactions[i].gas)) {
 									console.log('gas war')
 									buyTx = await gasWar(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, buyTx[1])
@@ -660,7 +660,7 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 						break;
 					}
 				}
-				// ************ gas war ************ 
+				// ************ gas war End ************ 
 				const buyReceipt = await buyTx[0].wait();
 				// ********** buy process ********** //
 				if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 1) {
