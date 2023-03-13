@@ -645,7 +645,7 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 					res = await latestBlockInfo();
 					remainTime = ((Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
 					if (Number(remainTime) < BLOCKTIME_FOR_GAS_WAR) {
-						for (let i = 0; i <= scanedTransactions.length; i++) {
+						for (let i = 0; i <= scanedTransactions.length - 1; i++) {
 							console.log('parseInt(buyGasPrice) : ', parseInt(buyGasPrice))
 							console.log('parseInt(scanedTransactions[i].data.gasPrice) : ', parseInt(scanedTransactions[i].data.gasPrice))
 							if (scanedTransactions[i].hash != transaction.hash
