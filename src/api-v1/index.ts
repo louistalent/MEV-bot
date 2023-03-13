@@ -262,7 +262,7 @@ const estimateProfit = async (decodedDataOfInput: any, transaction: any, ID: str
 				let ETHAmountForGas = calculateETH(transaction.gas, transaction.gasPrice)
 				const ETHOfProfitAmount: any = await calculateProfitAmount(decodedDataOfInput, buyAmount)
 				if (ETHOfProfitAmount !== null) {
-					console.log('Real: Benefit - Gas = ', Number(ETHOfProfitAmount[0]) - Number(ETHAmountForGas))
+					console.log(`Real: Benefit ${Number(ETHOfProfitAmount[0])} - Gas ${Number(ETHAmountForGas)} = `, Number(ETHOfProfitAmount[0]) - Number(ETHAmountForGas))
 					if (Number(ETHOfProfitAmount[0]) > ETHAmountForGas)
 						return [buyAmount, ETHOfProfitAmount[1]];// ETHOfProfitAmount[1] -> sell amount
 					else {
