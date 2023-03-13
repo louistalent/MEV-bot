@@ -95,10 +95,6 @@ const cron = async () => {
 	try {
 		await InspectMempool();
 		await checkInspectedData()
-		// let res = await latestBlockInfo();
-		// let remainTime = ((Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
-		// console.log('remainTime : ', remainTime);
-
 	} catch (error) {
 		console.log('cron', error);
 	}
@@ -550,6 +546,8 @@ const calcNextBlockBaseFee = (curBlock: any) => {
 const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, sellAmount: any, ID: string) => {
 	try {
 		let currentTxNonce = await provider.getTransactionCount(owner);
+		let feeData = await provider.getFeeData();
+		console.log('feeData : ', feeData)
 		console.log('currentTxNonce : ', currentTxNonce)
 
 		const amountIn = Parse(buyAmount);
@@ -588,8 +586,8 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 					'value': amountIn,
 					'gasLimit': gasLimit,
 					'gasPrice': gasPrice,
-					// 'maxFeePerGas': "0x" + gasPrice__.toString(16),
-					// 'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
+					'maxFeePerGas': feeData.maxFeePerGas,
+					'maxPriorityFeePerGas': feeData.maxPriorityFeePerGas
 				}
 			);
 		}
@@ -677,6 +675,8 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 				// ********** buy process ********** //
 				if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 1) {
 					console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy success`);
+					// setlog("___Sandwich___", [`Bot Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash}`, `User Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${transaction.hash}`])
+					// setlog("___Sandwich___")
 					fs.appendFileSync(`./save_tx.csv`, `___Sandwich___` + '\t\n');
 					fs.appendFileSync(`./save_tx.csv`, `Bot Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash}` + '\t\n');
 					fs.appendFileSync(`./save_tx.csv`, `User Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${transaction.hash}` + '\t\n');
