@@ -353,6 +353,16 @@ const InspectMempool = async () => {
 												type: "swapExactETHForTokens"
 											})
 										}
+										if (!sameBotTxForGasWar.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+											sameBotTxForGasWar.push({
+												hash: pendingTxs.pending[addr][k].hash,
+												processed: false,
+												data: pendingTxs.pending[addr][k],
+												decodedData: result,
+												ID: ID,
+												type: "swapExactETHForTokens"
+											})
+										}
 									} catch (error: any) {
 										try {
 											// result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
@@ -645,14 +655,14 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 					res = await latestBlockInfo();
 					remainTime = ((Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
 					if (Number(remainTime) < BLOCKTIME_FOR_GAS_WAR) {
-						for (let i = 0; i <= scanedTransactions.length - 1; i++) {
+						for (let i = 0; i <= sameBotTxForGasWar.length - 1; i++) {
 							console.log('parseInt(buyGasPrice) : ', parseInt(buyGasPrice))
-							console.log('parseInt(scanedTransactions[i].data.gasPrice) : ', parseInt(scanedTransactions[i].data.gasPrice))
-							if (scanedTransactions[i].hash != transaction.hash
+							console.log('parseInt(sameBotTxForGasWar[i].data.gasPrice) : ', parseInt(sameBotTxForGasWar[i].data.gasPrice))
+							if (sameBotTxForGasWar[i].hash != transaction.hash
 								&&
-								scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] === decodedDataOfInput.path[decodedDataOfInput.path.length - 1]
+								sameBotTxForGasWar[i].decodedData.path[sameBotTxForGasWar[i].decodedData.path.length - 1] === decodedDataOfInput.path[decodedDataOfInput.path.length - 1]
 							) {
-								if (parseInt(buyGasPrice) < parseInt(scanedTransactions[i].data.gasPrice)) {
+								if (parseInt(buyGasPrice) < parseInt(sameBotTxForGasWar[i].data.gasPrice)) {
 									console.log('gas war')
 									buyTx = await gasWar(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, buyTx[1])
 								}
