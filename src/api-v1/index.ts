@@ -561,7 +561,7 @@ const buyToken = async (transaction: any, decodedDataOfInput: any, gasLimit: any
 					'gasLimit': gasLimit,
 					// 'gasPrice': gasPrice,
 					'maxFeePerGas': maxFeePerGas,
-					'maxPriorityFeePerGas': maxPriorityFeePerGas_
+					'maxPriorityFeePerGas': buyMaxPriorityFeePerGas_
 				}
 			);
 		} else {
