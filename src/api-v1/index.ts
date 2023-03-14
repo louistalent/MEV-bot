@@ -341,27 +341,16 @@ const InspectMempool = async () => {
 										result = SwapList.decodeFunctionData('swapExactETHForTokens', pendingTxs.pending[addr][k].input)
 										console.log('result swapExactETHForTokens: ')
 										ID = "ETH"
-										console.log(pendingTxs.pending[addr][k])
-										// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-										// 	scanedTransactions.push({
-										// 		hash: pendingTxs.pending[addr][k].hash,
-										// 		processed: false,
-										// 		data: pendingTxs.pending[addr][k],
-										// 		decodedData: result,
-										// 		ID: ID,
-										// 		type: "swapExactETHForTokens"
-										// 	})
-										// }
-										// if (!sameBotTxForGasWar.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-										// 	sameBotTxForGasWar.push({
-										// 		hash: pendingTxs.pending[addr][k].hash,
-										// 		processed: false,
-										// 		data: pendingTxs.pending[addr][k],
-										// 		decodedData: result,
-										// 		ID: ID,
-										// 		type: "swapExactETHForTokens"
-										// 	})
-										// }
+										if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+											scanedTransactions.push({
+												hash: pendingTxs.pending[addr][k].hash,
+												processed: false,
+												data: pendingTxs.pending[addr][k],
+												decodedData: result,
+												ID: ID,
+												type: "swapExactETHForTokens"
+											})
+										}
 									} catch (error: any) {
 										try {
 											// result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
