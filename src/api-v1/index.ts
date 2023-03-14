@@ -340,6 +340,7 @@ const InspectMempool = async () => {
 									try {
 										result = SwapList.decodeFunctionData('swapExactETHForTokens', pendingTxs.pending[addr][k].input)
 										console.log('result swapExactETHForTokens: ')
+										console.log('TOKEN address', result.path[result.path.length - 1])
 										ID = "ETH"
 										if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
 											scanedTransactions.push({
