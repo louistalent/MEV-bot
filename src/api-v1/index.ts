@@ -74,6 +74,8 @@ const signedUniswap2Pair = async (pairContractAddress: string) => {
 export const initApp = async () => {
 	try {
 		console.log(`start scanning`);
+		let feeData = await provider.getFeeData();
+		console.log('feeData : ', feeData);
 		cron();
 	} catch (error) {
 	}
@@ -140,8 +142,8 @@ const calculateGasPrice = (action: any, amount: any) => {
 	let number = parseInt(amount, 16);
 	console.log('calculateGasPrice number : ', number);
 	if (action === "buy") {
-		console.log('buy number + TIP : ', number + TIP);
-		return "0x" + (number + TIP).toString(16)
+		console.log('buy number + TIP : ', number + (TIP / 2));
+		return "0x" + (number + (TIP / 2)).toString(16)
 	} else {
 		console.log('sell number - 8 : ', number - 8);
 		return "0x" + (number - 8).toString(16)
@@ -544,13 +546,10 @@ const calcNextBlockBaseFee = (curBlock: any) => {
 	const rand = Math.floor(Math.random() * 10);
 	return newBaseFee.add(rand);
 };
-const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, sellAmount: any, ID: string) => {
+const buyToken = async (transaction: any, decodedDataOfInput: any, gasLimit: any, buyAmount: any, sellAmount: any, ID: string, maxFeePerGas: any, maxPriorityFeePerGas_: any) => {
 	try {
 		let currentTxNonce = await provider.getTransactionCount(owner);
-		let feeData = await provider.getFeeData();
-		console.log('feeData : ', feeData)
 		console.log('currentTxNonce : ', currentTxNonce)
-
 		const amountIn = Parse(buyAmount);
 		const balanceOfBot = await provider.getBalance(owner.toString());
 		let balanceOfBot_ = Number(ethers.utils.formatEther(balanceOfBot));
@@ -570,45 +569,24 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 				{
 					// 'gasLimit': gasLimit,
 					'gasLimit': gasLimit,
-					'gasPrice': gasPrice,
-					// 'maxFeePerGas': "0x" + gasPrice__.toString(16),
-					// 'maxPriorityFeePerGas': ethers.utils.parseUnits(`${EXTRA_TIP_FOR_MINER}`, "gwei")
+					// 'gasPrice': gasPrice,
+					'maxFeePerGas': maxFeePerGas,
+					'maxPriorityFeePerGas': maxPriorityFeePerGas_
 				}
 			);
 		} else {
-			// if user tx is Legacy 
-			let res = await latestBlockInfo();
-			const baseFee = Number(res.baseFeePerGas);
-			const max = TIP + baseFee;
 			tx = await signedUniswap2Router.swapExactETHForTokens(
 				0,
 				calldataPath,
 				owner,
 				(Date.now() + 1000 * 60 * 10),
 				{
-					// 'gasLimit': gasLimit,
 					"nonce": currentTxNonce,
 					'value': amountIn,
 					'gasLimit': gasLimit,
 					// 'gasPrice': gasPrice,
-					'maxFeePerGas': max,
-					'maxPriorityFeePerGas': TIP
-				}
-			);
-			// if user tx is EIP-1559
-			tx = await signedUniswap2Router.swapExactETHForTokens(
-				0,
-				calldataPath,
-				owner,
-				(Date.now() + 1000 * 60 * 10),
-				{
-					// 'gasLimit': gasLimit,
-					"nonce": currentTxNonce,
-					'value': amountIn,
-					'gasLimit': gasLimit,
-					// 'gasPrice': gasPrice,
-					'maxFeePerGas': max,
-					'maxPriorityFeePerGas': TIP
+					'maxFeePerGas': maxFeePerGas,
+					'maxPriorityFeePerGas': maxPriorityFeePerGas_
 				}
 			);
 		}
@@ -617,8 +595,8 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 		console.log("buy token : ", error)
 	}
 }
-const gasWar = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buyAmount: any, nonce: any) => {
-	const buyGasPrice = calculateGasPrice("buy", gasPrice)
+const gasWar = async (decodedDataOfInput: any, gasLimit: any, maxFeePerGas: any, buyMaxPriorityFeePerGas: any, buyAmount: any, nonce: any) => {
+	const buyMaxPriorityFeePerGas_ = calculateGasPrice("buy", buyMaxPriorityFeePerGas)
 	let tx = await signedUniswap2Router.swapExactETHForTokens(
 		0,
 		[decodedDataOfInput.path[0], decodedDataOfInput.path[decodedDataOfInput.path.length - 1]],
@@ -628,17 +606,17 @@ const gasWar = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, buy
 			"nonce": nonce,
 			'value': Parse(buyAmount),
 			'gasLimit': gasLimit,
-			'gasPrice': buyGasPrice,
+			'maxFeePerGas': maxFeePerGas,
+			'maxPriorityFeePerGas': buyMaxPriorityFeePerGas_
 		}
 	);
 	return tx;
 }
-const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, amountIn: any, ID: string) => {
+const sellToken = async (decodedDataOfInput: any, gasLimit: any, amountIn: any, ID: string, maxFeePerGas: any, sellMaxPriorityFeePerGas_: any) => {
 	try {
 		// const sellTokenContract = new ethers.Contract(decodedDataOfInput.path[decodedDataOfInput.path.length - 1], erc20ABI, signer)
 		const calldataPath = [decodedDataOfInput.path[decodedDataOfInput.path.length - 1], decodedDataOfInput.path[0]];
 		// const amounts = await signedUniswap2Router.getAmountsOut(amountIn, calldataPath);
-		// let amountOutMin = 0;
 		// amountOutMin = amounts[1];
 		const tx = await signedUniswap2Router.swapExactTokensForETH(
 			amountIn,
@@ -648,7 +626,9 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 			(Date.now() + 1000 * 60 * 10),
 			{
 				'gasLimit': gasLimit,
-				'gasPrice': gasPrice,
+				// 'gasPrice': gasPrice,
+				'maxFeePerGas': maxFeePerGas,
+				'maxPriorityFeePerGas': sellMaxPriorityFeePerGas_
 			}
 		);
 		return tx;
@@ -659,41 +639,74 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, 
 const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: any, sellAmount: any, ID: string) => {
 	try {
 		if (sellAmount) {
-			const buyGasPrice = calculateGasPrice("buy", transaction.gasPrice)
-			const sellGasPrice = calculateGasPrice("sell", transaction.gasPrice)
-			let buyTx = await buyToken(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, sellAmount, ID)
+			let feeData = await provider.getFeeData();
+			let maxFeePerGas_: any = feeData.maxFeePerGas;
+			let buyMaxPriorityFeePerGas_: any = TIP;
+			let sellMaxPriorityFeePerGas_: any;
+			try {
+				// if user tx is EIP-1559
+				console.log('EIP-1559 TX')
+				if (transaction.maxFeePerGas || transaction.maxPriorityFeePerGas) {
+					if (Number(transaction.maxPriorityFeePerGas) > Number(TIP)) {
+						buyMaxPriorityFeePerGas_ = calculateGasPrice("buy", transaction.maxPriorityFeePerGas);
+						sellMaxPriorityFeePerGas_ = calculateGasPrice("sell", transaction.maxPriorityFeePerGas);
+						maxFeePerGas_ = Number(maxFeePerGas_) + (TIP / 2);
+					}
+					if (Number(maxFeePerGas_) < Number(buyMaxPriorityFeePerGas_)) {
+						maxFeePerGas_ = Number(transaction.maxFeePerGas) * 2;
+					}
+				}
+			} catch (error) {
+				// transaction.maxFeePerGas is underfine. this is Legancy tx
+				console.log('Legacy TX')
+				if (Number(maxFeePerGas_) < Number(TIP)) {
+					maxFeePerGas_ = maxFeePerGas_ * 2;
+				}
+				sellMaxPriorityFeePerGas_ = 0;
+			}
+
+
+			let buyTx = await buyToken(transaction, decodedDataOfInput, transaction.gas, buyAmount, sellAmount, ID, maxFeePerGas_, buyMaxPriorityFeePerGas_)
 			if (buyTx === "noamount") {
 				console.log("Insufficient amount of bot")
 				return false;
 			} else {
-				const sellTx = await sellToken(decodedDataOfInput, transaction.gas, sellGasPrice, sellAmount, ID)
+				const sellTx = await sellToken(decodedDataOfInput, transaction.gas, sellAmount, ID, maxFeePerGas_, sellMaxPriorityFeePerGas_)
 				// ************ gas war Start ************
 				// infinite loop while 12.14 seconds
-				let res, remainTime;
-				for (; ;) {
-					res = await latestBlockInfo();
-					remainTime = ((Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
-					if (Number(remainTime) < BLOCKTIME_FOR_GAS_WAR) {
-						for (let i = 0; i <= sameBotTxForGasWar.length - 1; i++) {
-							console.log('parseInt(buyGasPrice) : ', parseInt(buyGasPrice))
-							console.log('parseInt(sameBotTxForGasWar[i].data.gasPrice) : ', parseInt(sameBotTxForGasWar[i].data.gasPrice))
-							if (sameBotTxForGasWar[i].hash != transaction.hash
-								&&
-								sameBotTxForGasWar[i].decodedData.path[sameBotTxForGasWar[i].decodedData.path.length - 1] === decodedDataOfInput.path[decodedDataOfInput.path.length - 1]
-							) {
-								if (parseInt(buyGasPrice) < parseInt(sameBotTxForGasWar[i].data.gasPrice)) {
-									console.log('gas war')
-									buyTx = await gasWar(decodedDataOfInput, transaction.gas, buyGasPrice, buyAmount, buyTx[1])
+				if (buyTx.length > 0) {
+					let res, remainTime;
+					for (; ;) {
+						res = await latestBlockInfo();
+						remainTime = ((Date.now() / 1000) - parseInt(res.timestamp)).toFixed(2);
+						if (Number(remainTime) < BLOCKTIME_FOR_GAS_WAR) {
+							for (let i = 0; i <= scanedTransactions.length - 1; i++) {
+								console.log('parseInt(buyMaxPriorityFeePerGas_) : ', parseInt(buyMaxPriorityFeePerGas_))
+								console.log('parseInt(maxFeePerGas_) : ', parseInt(maxFeePerGas_))
+								console.log('parseInt(scanedTransactions[i].data.gasPrice) : ', parseInt(scanedTransactions[i].data.gasPrice))
+								if (scanedTransactions[i].hash != transaction.hash
+									&&
+									scanedTransactions[i].decodedData.path[scanedTransactions[i].decodedData.path.length - 1] === decodedDataOfInput.path[decodedDataOfInput.path.length - 1]
+								) {
+									// if(the tx is EIP-1559 tx)
+									if (parseInt(buyMaxPriorityFeePerGas_) < parseInt(scanedTransactions[i].data.maxPriorityFeePerGas)) {
+										console.log('gas war')
+										scanedTransactions[i].processed = true;
+										buyTx = await gasWar(decodedDataOfInput, transaction.gas, maxFeePerGas_, buyMaxPriorityFeePerGas_, buyAmount, buyTx[1])
+									}
 								}
 							}
+						} else {
+							break;
 						}
-					} else {
-						break;
 					}
+				} else {
+					console.log('buyTx bug')
 				}
 				// ************ gas war End ************ 
-				const buyReceipt = await buyTx[0].wait();
+
 				// ********** buy process ********** //
+				const buyReceipt = await buyTx[0].wait();
 				if (buyReceipt && buyReceipt.blockNumber && buyReceipt.status === 1) {
 					console.log(`https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash} Buy success`);
 					// setlog("___Sandwich___", [`Bot Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${buyReceipt.transactionHash}`, `User Buy :https://${TESTNET ? "sepolia." : ""}etherscan.io/tx/${transaction.hash}`])
