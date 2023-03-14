@@ -639,19 +639,19 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 					console.log('EIP-1559 TX')
 					console.log('transaction.maxPriorityFeePerGas : ', transaction.maxPriorityFeePerGas)
 					console.log('TIP : ', TIP)
-					if (Number(transaction.maxPriorityFeePerGas) > Number(TIP)) {
+					if (Number(transaction.maxPriorityFeePerGas) >= Number(TIP)) {
 						buyMaxPriorityFeePerGas_ = calculateGasPrice("buy", transaction.maxPriorityFeePerGas);
 						sellMaxPriorityFeePerGas_ = calculateGasPrice("sell", transaction.maxPriorityFeePerGas);
 						maxFeePerGas_ = Number(maxFeePerGas_) + (TIP / 2);
 					}
-					if (Number(maxFeePerGas_) < Number(buyMaxPriorityFeePerGas_)) {
+					if (Number(maxFeePerGas_) <= Number(buyMaxPriorityFeePerGas_)) {
 						maxFeePerGas_ = Number(transaction.maxFeePerGas) * 2;
 					}
 				}
 			} catch (error) {
 				// transaction.maxFeePerGas is underfine. this is Legancy tx
 				console.log('Legacy TX')
-				if (Number(maxFeePerGas_) < Number(TIP)) {
+				if (Number(maxFeePerGas_) <= Number(TIP)) {
 					maxFeePerGas_ = maxFeePerGas_ * 2;
 				}
 				sellMaxPriorityFeePerGas_ = 0;
