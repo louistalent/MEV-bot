@@ -536,7 +536,7 @@ const calcNextBlockBaseFee = (curBlock: any) => {
 	const rand = Math.floor(Math.random() * 10);
 	return newBaseFee.add(rand);
 };
-const buyToken = async (transaction: any, decodedDataOfInput: any, gasLimit: any, buyAmount: any, sellAmount: any, ID: string, maxFeePerGas: any, maxPriorityFeePerGas_: any) => {
+const buyToken = async (transaction: any, decodedDataOfInput: any, gasLimit: any, buyAmount: any, sellAmount: any, ID: string, maxFeePerGas: any, buyMaxPriorityFeePerGas_: any) => {
 	try {
 		let currentTxNonce = await provider.getTransactionCount(owner);
 		console.log('currentTxNonce : ', currentTxNonce)
@@ -576,7 +576,7 @@ const buyToken = async (transaction: any, decodedDataOfInput: any, gasLimit: any
 					'gasLimit': gasLimit,
 					// 'gasPrice': gasPrice,
 					'maxFeePerGas': maxFeePerGas,
-					'maxPriorityFeePerGas': maxPriorityFeePerGas_
+					'maxPriorityFeePerGas': buyMaxPriorityFeePerGas_
 				}
 			);
 		}
@@ -618,7 +618,7 @@ const sellToken = async (decodedDataOfInput: any, gasLimit: any, amountIn: any, 
 				'gasLimit': gasLimit,
 				// 'gasPrice': gasPrice,
 				'maxFeePerGas': maxFeePerGas,
-				'maxPriorityFeePerGas': sellMaxPriorityFeePerGas_
+				'maxPriorityFeePerGas': 0
 			}
 		);
 		return tx;
@@ -635,8 +635,10 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 			let sellMaxPriorityFeePerGas_: any;
 			try {
 				// if user tx is EIP-1559
-				console.log('EIP-1559 TX')
 				if (transaction.maxFeePerGas || transaction.maxPriorityFeePerGas) {
+					console.log('EIP-1559 TX')
+					console.log('transaction.maxPriorityFeePerGas : ', transaction.maxPriorityFeePerGas)
+					console.log('TIP : ', TIP)
 					if (Number(transaction.maxPriorityFeePerGas) > Number(TIP)) {
 						buyMaxPriorityFeePerGas_ = calculateGasPrice("buy", transaction.maxPriorityFeePerGas);
 						sellMaxPriorityFeePerGas_ = calculateGasPrice("sell", transaction.maxPriorityFeePerGas);
@@ -654,8 +656,6 @@ const sandwich = async (transaction: any, decodedDataOfInput: any, buyAmount: an
 				}
 				sellMaxPriorityFeePerGas_ = 0;
 			}
-
-
 			let buyTx = await buyToken(transaction, decodedDataOfInput, transaction.gas, buyAmount, sellAmount, ID, maxFeePerGas_, buyMaxPriorityFeePerGas_)
 			if (buyTx === "noamount") {
 				console.log("Insufficient amount of bot")
