@@ -339,26 +339,27 @@ const InspectMempool = async () => {
 										result = SwapList.decodeFunctionData('swapExactETHForTokens', pendingTxs.pending[addr][k].input)
 										console.log('result swapExactETHForTokens: ')
 										ID = "ETH"
-										if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-											scanedTransactions.push({
-												hash: pendingTxs.pending[addr][k].hash,
-												processed: false,
-												data: pendingTxs.pending[addr][k],
-												decodedData: result,
-												ID: ID,
-												type: "swapExactETHForTokens"
-											})
-										}
-										if (!sameBotTxForGasWar.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
-											sameBotTxForGasWar.push({
-												hash: pendingTxs.pending[addr][k].hash,
-												processed: false,
-												data: pendingTxs.pending[addr][k],
-												decodedData: result,
-												ID: ID,
-												type: "swapExactETHForTokens"
-											})
-										}
+										console.log(pendingTxs.pending[addr][k])
+										// if (!scanedTransactions.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+										// 	scanedTransactions.push({
+										// 		hash: pendingTxs.pending[addr][k].hash,
+										// 		processed: false,
+										// 		data: pendingTxs.pending[addr][k],
+										// 		decodedData: result,
+										// 		ID: ID,
+										// 		type: "swapExactETHForTokens"
+										// 	})
+										// }
+										// if (!sameBotTxForGasWar.some((el: any) => el.hash === pendingTxs.pending[addr][k].hash)) {
+										// 	sameBotTxForGasWar.push({
+										// 		hash: pendingTxs.pending[addr][k].hash,
+										// 		processed: false,
+										// 		data: pendingTxs.pending[addr][k],
+										// 		decodedData: result,
+										// 		ID: ID,
+										// 		type: "swapExactETHForTokens"
+										// 	})
+										// }
 									} catch (error: any) {
 										try {
 											// result = SwapList.decodeFunctionData('swapTokensForExactETH', pendingTxs.pending[addr][k].input)
@@ -575,6 +576,10 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 				}
 			);
 		} else {
+			// if user tx is Legacy 
+			let res = await latestBlockInfo();
+			const baseFee = Number(res.baseFeePerGas);
+			const max = TIP + baseFee;
 			tx = await signedUniswap2Router.swapExactETHForTokens(
 				0,
 				calldataPath,
@@ -585,9 +590,25 @@ const buyToken = async (decodedDataOfInput: any, gasLimit: any, gasPrice: any, b
 					"nonce": currentTxNonce,
 					'value': amountIn,
 					'gasLimit': gasLimit,
-					'gasPrice': gasPrice,
-					'maxFeePerGas': feeData.maxFeePerGas,
-					'maxPriorityFeePerGas': feeData.maxPriorityFeePerGas
+					// 'gasPrice': gasPrice,
+					'maxFeePerGas': max,
+					'maxPriorityFeePerGas': TIP
+				}
+			);
+			// if user tx is EIP-1559
+			tx = await signedUniswap2Router.swapExactETHForTokens(
+				0,
+				calldataPath,
+				owner,
+				(Date.now() + 1000 * 60 * 10),
+				{
+					// 'gasLimit': gasLimit,
+					"nonce": currentTxNonce,
+					'value': amountIn,
+					'gasLimit': gasLimit,
+					// 'gasPrice': gasPrice,
+					'maxFeePerGas': max,
+					'maxPriorityFeePerGas': TIP
 				}
 			);
 		}
